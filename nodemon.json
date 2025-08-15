@@ -1,0 +1,11 @@
+{
+    "ignore": ["*.pyc", "__pycache__"],
+    "execMap": {
+      "py": "poetry"
+    },
+    "watch": ["./bot"],
+    "ext": "py",
+    "delay": "4000",
+    "legacyWatch": true,
+    "exec": "poetry run python -m app --mode=dev --client=scrapper"
+}

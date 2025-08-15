@@ -1,0 +1,9 @@
+# ignore all files
+**
+
+# exclusion
+!/bot/
+
+!/.env
+!/poetry.lock
+!/pyproject.toml

@@ -1,0 +1,160 @@
+import asyncio
+import time
+import json
+import traceback
+import random
+from loguru import logger
+from bs4 import BeautifulSoup
+from webdriver_manager.chrome import ChromeDriverManager
+import undetected_chromedriver as uc
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
+from app.database.repo.Word import WordRepo
+from app.enums import WordType
+from app.settings import settings
+from app.bot.Manager import BotManager
+from app.database.models.Word import Word
+from app.helpers import preprocess_text, is_word_match, is_duplicate, get_fetched_post_ids
+from app.queue import queue
+
+with open("cookies.txt", "r") as file:
+    COOKIE_JSON = file.read().rstrip()
+
+
+class Scrapper:
+    def __init__(self):
+        self.SEARCH_URL = "https://tgstat.ru/search"
+
+        self.driver = None
+        self.wait = None
+
+        self.is_load_cookie = False
+
+    def _load_driver(self):
+        options = uc.ChromeOptions()
+        self.driver = uc.Chrome(
+            use_subprocess=False,
+            # options=options,
+            driver_executable_path=ChromeDriverManager().install(),
+        )
+        self.wait = WebDriverWait(self.driver, 10)
+
+    def _load_cookie(self):
+        self.is_load_cookie = True
+        data = json.loads(COOKIE_JSON)
+        for cookie in data:
+            self.driver.add_cookie({k: cookie[k] for k in {"name", "value"}})
+
+    async def fetch_url(self):
+        try:
+            keywords = await WordRepo.get_all(WordType.keyword)
+            stopwords = await WordRepo.get_all(WordType.stopword)
+
+            for idx, keyword in enumerate(keywords, start=1):
+                try:
+                    is_first_search = idx == 1
+
+                    if is_first_search:
+                        self.load_search_page()
+
+                    await self.input_search_keywords(keyword.title, is_first_search)
+                    self.load_more_posts()
+                    await self.parse_posts(keyword.central_chat_id, stopwords)
+                    await asyncio.sleep(10)
+                except NoSuchElementException as ex:
+                    print(ex)
+
+        except Exception as ex:
+            logger.error(ex)
+            traceback.print_exc()
+
+    async def parse_posts(self, chat_id: int, stopwords: list[Word]):
+        FETCHED_CARDS = await get_fetched_post_ids()
+
+        logger.info("Парсим и анализируем посты")
+
+        soup = BeautifulSoup(self.driver.page_source, "html.parser")
+
+        cards = soup.select(".posts-list > .card")
+
+        for card in cards:
+            text = card.select_one(".post-text").decode_contents(formatter="html")
+            id = card.select_one('[data-original-title="Постоянная ссылка на публикацию"]').get("data-src")
+
+            if id in FETCHED_CARDS:
+                continue
+
+            FETCHED_CARDS.append(id)
+
+            if is_word_match(text, stopwords):
+                logger.info(f"Нашли стоп-слова в сообщении: {id}")
+                continue
+
+            if await is_duplicate(id, text):
+                logger.info(f"Сообщение дубликат: {id}")
+                return
+
+            asyncio.create_task(queue.call((BotManager.send_message, chat_id, preprocess_text(text))))
+
+    def load_search_page(self):
+        """Грузим поисковую страницу"""
+        logger.info("Грузим поисковую страницу")
+
+        self.driver.get(self.SEARCH_URL)
+        if not self.is_load_cookie:
+            self._load_cookie()
+            self.driver.refresh()
+
+        time.sleep(4)
+
+    async def input_search_keywords(self, keyword_request: str, is_first_search: bool):
+        """Вводим поисковой запрос"""
+        if is_first_search:
+            search_input = self.driver.find_element(By.XPATH, '//*[@id="search-form-top"]/div/div/input')
+        else:
+            search_input = self.driver.find_element(By.XPATH, '//*[@id="q"]')
+            search_input.clear()
+
+        search_input.send_keys(keyword_request)
+        time.sleep(1)
+        search_input.send_keys(Keys.RETURN)
+
+        logger.debug(f"Делаем запрос с ключами: {keyword_request}")
+
+    def load_more_posts(self):
+        """Нажимаем кнопку загрузить еще"""
+        logger.info("Открываем больше постов")
+        try:
+            button = self.driver.find_element(By.XPATH, '//*[@id="sticky-center-column"]/div[3]/div[2]/button')
+            click_count = settings.get_scrapper_more_posts_clicks_count()
+
+            for _ in range(click_count):
+                button.click()
+                time.sleep(2)
+
+        except NoSuchElementException:
+            logger.warning("Не нашли кнопки для загрузки дополнительных постов")
+
+    async def start(self):
+        self._load_driver()
+
+        load_count = 0
+        try:
+            while True:
+                load_count += 1
+                logger.info(f"Начинаем проверку №{load_count}")
+                await self.fetch_url()
+
+                sleep_sec = settings.get_scrapper_page_sleep_sec()
+                sleep_sec = random.randint(sleep_sec, sleep_sec + 60)
+                logger.info(f"Спим: {sleep_sec} сек.")
+                time.sleep(sleep_sec)
+        finally:
+            self.driver.close()
+            self.driver.quit()
+
+
+scrapper = Scrapper()
