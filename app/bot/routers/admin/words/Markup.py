@@ -10,8 +10,7 @@ from app.bot.callback_data import (
     WordMenuCb,
     WordMenuDeleteCb,
     WordShowCb,
-    WordUploadingStopwordCb,
-    WordUploadingKeywordCb,
+    WordUploadingCb,
 )
 
 
@@ -72,12 +71,14 @@ class Markup:
                 ),
             )
             markup.row(
-                InlineKeyboardButton(text="👁️ Список ключ-слов", callback_data=WordShowCb(word_type=word_type).pack())
+                InlineKeyboardButton(
+                    text="👁️ Список ключ-слов",
+                    callback_data=WordShowCb(word_type=word_type).pack())
             )
             markup.row(
                 InlineKeyboardButton(
                     text="𝄜 Список ключ-слов Excel",
-                    callback_data=WordUploadingKeywordCb(word_type=WordType.keyword).pack()
+                    callback_data=WordUploadingCb(word_type=WordType.keyword).pack()
                 )
             )
 
@@ -93,12 +94,14 @@ class Markup:
                 ),
             )
             markup.row(
-                InlineKeyboardButton(text="👁️ Список стоп-слов", callback_data=WordShowCb(word_type=word_type).pack())
+                InlineKeyboardButton(
+                    text="👁️ Список стоп-слов",
+                    callback_data=WordShowCb(word_type=word_type).pack())
             )
             markup.row(
                 InlineKeyboardButton(
                     text="𝄜 Список стоп-слов Excel",
-                    callback_data=WordUploadingStopwordCb(word_type=WordType.stopword).pack()
+                    callback_data=WordUploadingCb(word_type=WordType.stopword).pack()
                 )
             )
 
