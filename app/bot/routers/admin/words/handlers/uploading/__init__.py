@@ -17,7 +17,6 @@ async def send_uploading_file(cb: types.CallbackQuery, callback_data: WordUpload
     await cb.answer("Файл готов!")
     if word_type == WordType.keyword:
         excel_path = generate_excel_keyword()
-        print(excel_path)
         excel_file = FSInputFile(excel_path, filename="Список_ключ_слов.xlsx")
         await cb.message.answer_document(
             document=excel_file,
@@ -25,7 +24,6 @@ async def send_uploading_file(cb: types.CallbackQuery, callback_data: WordUpload
         )
     else:
         excel_path = generate_excel_stopword()
-        print(excel_path)
         excel_file = FSInputFile(excel_path, filename="Список_стоп_слов.xlsx")
         await cb.message.answer_document(
             document=excel_file,
