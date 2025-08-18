@@ -10,6 +10,8 @@ from app.bot.callback_data import (
     WordMenuCb,
     WordMenuDeleteCb,
     WordShowCb,
+    WordUploadingStopwordCb,
+    WordUploadingKeywordCb,
 )
 
 
@@ -72,6 +74,12 @@ class Markup:
             markup.row(
                 InlineKeyboardButton(text="👁️ Список ключ-слов", callback_data=WordShowCb(word_type=word_type).pack())
             )
+            markup.row(
+                InlineKeyboardButton(
+                    text="𝄜 Список ключ-слов Excel",
+                    callback_data=WordUploadingKeywordCb(word_type=WordType.keyword).pack()
+                )
+            )
 
         elif word_type == WordType.stopword:
             markup.row(
@@ -86,6 +94,12 @@ class Markup:
             )
             markup.row(
                 InlineKeyboardButton(text="👁️ Список стоп-слов", callback_data=WordShowCb(word_type=word_type).pack())
+            )
+            markup.row(
+                InlineKeyboardButton(
+                    text="𝄜 Список стоп-слов Excel",
+                    callback_data=WordUploadingStopwordCb(word_type=WordType.stopword).pack()
+                )
             )
 
         markup.row(InlineKeyboardButton(text="⬅️ Вернуться назад", callback_data=back_menu_cb))

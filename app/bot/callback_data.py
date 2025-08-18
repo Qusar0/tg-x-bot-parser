@@ -1,3 +1,5 @@
+from sys import prefix
+
 from aiogram.filters.callback_data import CallbackData
 from app.enums import WordType
 
@@ -71,4 +73,10 @@ class DeleteAllWordsCb(CallbackData, prefix="daw"):
 
 
 class WordShowCb(CallbackData, prefix="ws"):
+    word_type: WordType
+
+class WordUploadingKeywordCb(CallbackData, prefix="wuk"):
+    word_type: WordType
+
+class WordUploadingStopwordCb(CallbackData, prefix="wup"):
     word_type: WordType
