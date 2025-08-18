@@ -28,26 +28,14 @@ def write_excel(worksheet, workbook, value, name_column):
 
     worksheet.set_column(0, 0, max_len * 1.1)
 
-def generate_excel_keyword():
-    workbook1 = Workbook('output_keyword.xlsx')
+def generate_excel(word_type):
+    workbook1 = Workbook(f'{word_type}.xlsx')
     worksheet1 = workbook1.add_worksheet()
 
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
-    select_keyword = c.execute("SELECT title FROM word WHERE word_type = 'keyword'")
-    write_excel(worksheet1, workbook1, select_keyword, 'Ключ-слово')
+    select_keyword = c.execute(f"SELECT title FROM word WHERE word_type = '{word_type}'")
+    write_excel(worksheet1, workbook1, select_keyword, f'{word_type}')
     workbook1.close()
     conn.close()
-    return 'output_keyword.xlsx'
-
-def generate_excel_stopword():
-    workbook2 = Workbook('output_stopword.xlsx')
-    worksheet2 = workbook2.add_worksheet()
-
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
-    select_stopword = c.execute("SELECT title FROM word WHERE word_type = 'stopword'")
-    write_excel(worksheet2, workbook2, select_stopword, 'Стоп-слово')
-    workbook2.close()
-    conn.close()
-    return 'output_stopword.xlsx'
+    return f'{word_type}.xlsx'

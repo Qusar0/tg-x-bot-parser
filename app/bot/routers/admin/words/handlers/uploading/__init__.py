@@ -3,7 +3,7 @@ from aiogram.types.input_file import FSInputFile
 from aiogram.fsm.context import FSMContext
 from app.bot.routers.admin import admin_router
 from app.bot.callback_data import WordUploadingCb
-from .template import generate_excel_keyword, generate_excel_stopword
+from .template import generate_excel
 from app.bot.routers.admin.words.Markup import Markup
 from app.enums import WordType
 
@@ -16,14 +16,14 @@ async def send_uploading_file(cb: types.CallbackQuery, callback_data: WordUpload
 
     await cb.answer("Файл готов!")
     if word_type == WordType.keyword:
-        excel_path = generate_excel_keyword()
+        excel_path = generate_excel(WordType.keyword)
         excel_file = FSInputFile(excel_path, filename="Список_ключ_слов.xlsx")
         await cb.message.answer_document(
             document=excel_file,
             reply_markup=Markup.open_menu(WordType.keyword)
         )
     else:
-        excel_path = generate_excel_stopword()
+        excel_path = generate_excel(WordType.stopword)
         excel_file = FSInputFile(excel_path, filename="Список_стоп_слов.xlsx")
         await cb.message.answer_document(
             document=excel_file,
