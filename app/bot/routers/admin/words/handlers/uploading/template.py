@@ -1,11 +1,14 @@
 import sqlite3
 from xlsxwriter.workbook import Workbook
+from xlsxwriter.worksheet import Worksheet
 from pathlib import Path
+from typing import Iterator
+from app.enums import WordType
 
 
 db_path = Path(__file__).parents[7] / "database.db"
 
-def write_excel(worksheet, workbook, value, name_column):
+def write_excel(worksheet: Worksheet, workbook: Workbook, value: Iterator[tuple[str]], name_column: str) -> None:
     border_format = workbook.add_format({
         'border': 2,
         'align': 'left',
@@ -28,7 +31,7 @@ def write_excel(worksheet, workbook, value, name_column):
 
     worksheet.set_column(0, 0, max_len * 1.1)
 
-def generate_excel(word_type):
+def generate_excel(word_type: WordType) -> str:
     workbook1 = Workbook(f'{word_type}.xlsx')
     worksheet1 = workbook1.add_worksheet()
 
