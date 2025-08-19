@@ -1,8 +1,7 @@
 from xlsxwriter.workbook import Workbook
 from xlsxwriter.worksheet import Worksheet
-from typing import Iterator
+from collections.abc import Iterator
 from app.database.repo.Word import WordRepo
-from app.bot.routers.admin.words.Markup import Markup
 from app.enums import WordType
 from aiogram.types.input_file import FSInputFile
 from aiogram import types
@@ -28,7 +27,7 @@ def write_excel(worksheet: Worksheet, workbook: Workbook, value: Iterator[tuple[
 
     worksheet.write(0, 0, name, header_format)
 
-    max_len = len(name_column)
+    max_len = len(name)
     for i, row in enumerate(value, start=1):
         worksheet.write(i, 0, row[0], border_format)
         if len(row[0]) > max_len:
@@ -50,23 +49,9 @@ async def generate_excel(word_type: WordType) -> str:
 
 
 async def _process_word_type_upload(cb: types.CallbackQuery, word_type: WordType) -> None:
-    config = {
-        WordType.keyword: {
-            "filename": "Список_ключ_слов.xlsx",
-            "message": "<b>Перешли в меню ключ-слов</b> 🔑\n\n📄 Файл Excel отправлен!"
-        },
-        WordType.stopword: {
-            "filename": "Список_стоп_слов.xlsx",
-            "message": "<b>🛑 Перешли в меню стоп-слов</b>\n\n📄 Файл Excel отправлен!"
-        }
-    }
+    filename = 'Список_ключ_слов.xlsx' if word_type == WordType.keyword else 'Список_стоп_слов.xlsx'
 
     excel_path = await generate_excel(word_type)
-    excel_file = FSInputFile(excel_path, filename=config[word_type]["filename"])
+    excel_file = FSInputFile(excel_path, filename=filename)
 
     await cb.message.answer_document(document=excel_file)
-
-    await cb.message.edit_text(
-        config[word_type]["message"],
-        reply_markup=Markup.open_menu(word_type)
-    )
