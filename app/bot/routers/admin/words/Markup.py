@@ -77,7 +77,7 @@ class Markup:
             )
             markup.row(
                 InlineKeyboardButton(
-                    text="𝄜 Список ключ-слов Excel",
+                    text="📗 Список ключ-слов Excel",
                     callback_data=WordUploadingCb(word_type=WordType.keyword).pack()
                 )
             )
@@ -100,7 +100,7 @@ class Markup:
             )
             markup.row(
                 InlineKeyboardButton(
-                    text="𝄜 Список стоп-слов Excel",
+                    text="📗 Список стоп-слов Excel",
                     callback_data=WordUploadingCb(word_type=WordType.stopword).pack()
                 )
             )
