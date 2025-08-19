@@ -17,16 +17,10 @@ async def start_handler(event: types.Message | types.CallbackQuery, state: FSMCo
             reply_markup=Markup.open_menu(),
         )
     else:
-        if event.message.document or event.message.photo or event.message.video or event.message.audio or event.message.voice or event.message.sticker:
-            await event.message.answer(
-                settings.get_template(),
-                reply_markup=Markup.open_menu(),
-            )
-        else:
-            await event.message.edit_text(
-                settings.get_template(),
-                reply_markup=Markup.open_menu(),
-            )
+        await event.message.edit_text(
+            settings.get_template(),
+            reply_markup=Markup.open_menu(),
+        )
 
 
 @admin_router.callback_query(F.data == delete_cb)

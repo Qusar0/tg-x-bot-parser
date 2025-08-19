@@ -1,12 +1,12 @@
-import sqlite3
 from xlsxwriter.workbook import Workbook
 from xlsxwriter.worksheet import Worksheet
-from pathlib import Path
 from typing import Iterator
+from app.database.repo.Word import WordRepo
+from app.bot.routers.admin.words.Markup import Markup
 from app.enums import WordType
+from aiogram.types.input_file import FSInputFile
+from aiogram import types
 
-
-db_path = Path(__file__).parents[7] / "database.db"
 
 def write_excel(worksheet: Worksheet, workbook: Workbook, value: Iterator[tuple[str]], name_column: str) -> None:
     border_format = workbook.add_format({
@@ -21,7 +21,12 @@ def write_excel(worksheet: Worksheet, workbook: Workbook, value: Iterator[tuple[
         'align': 'center'
     })
 
-    worksheet.write(0, 0, name_column, header_format)
+    if name_column == 'keyword':
+        name = 'Ключ-слова'
+    else:
+        name = 'Стоп-слова'
+
+    worksheet.write(0, 0, name, header_format)
 
     max_len = len(name_column)
     for i, row in enumerate(value, start=1):
@@ -31,14 +36,37 @@ def write_excel(worksheet: Worksheet, workbook: Workbook, value: Iterator[tuple[
 
     worksheet.set_column(0, 0, max_len * 1.1)
 
-def generate_excel(word_type: WordType) -> str:
-    workbook1 = Workbook(f'{word_type}.xlsx')
-    worksheet1 = workbook1.add_worksheet()
 
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
-    select_keyword = c.execute(f"SELECT title FROM word WHERE word_type = '{word_type}'")
-    write_excel(worksheet1, workbook1, select_keyword, f'{word_type}')
-    workbook1.close()
-    conn.close()
+async def generate_excel(word_type: WordType) -> str:
+    workbook = Workbook(f'{word_type}.xlsx')
+    worksheet = workbook.add_worksheet()
+
+    words = await WordRepo.get_all(word_type)
+    words_data = ((word.title,) for word in words)
+
+    write_excel(worksheet, workbook, words_data, f'{word_type}')
+    workbook.close()
     return f'{word_type}.xlsx'
+
+
+async def _process_word_type_upload(cb: types.CallbackQuery, word_type: WordType) -> None:
+    config = {
+        WordType.keyword: {
+            "filename": "Список_ключ_слов.xlsx",
+            "message": "<b>Перешли в меню ключ-слов</b> 🔑\n\n📄 Файл Excel отправлен!"
+        },
+        WordType.stopword: {
+            "filename": "Список_стоп_слов.xlsx",
+            "message": "<b>🛑 Перешли в меню стоп-слов</b>\n\n📄 Файл Excel отправлен!"
+        }
+    }
+
+    excel_path = await generate_excel(word_type)
+    excel_file = FSInputFile(excel_path, filename=config[word_type]["filename"])
+
+    await cb.message.answer_document(document=excel_file)
+
+    await cb.message.edit_text(
+        config[word_type]["message"],
+        reply_markup=Markup.open_menu(word_type)
+    )

@@ -1,5 +1,3 @@
-from sys import prefix
-
 from aiogram.filters.callback_data import CallbackData
 from app.enums import WordType
 
