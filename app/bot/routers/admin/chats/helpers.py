@@ -10,7 +10,7 @@ def extract_chat_entities(text: str) -> list[str]:
         username = username.strip()
         match = USERNAME_RE.match(username)
         if match:
-            matched_username = username[match.end() :]
+            matched_username = username[match.end():]
             is_invite = bool(match.group(1))
             if is_invite:
                 usernames.add(username)

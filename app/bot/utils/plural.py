@@ -1,5 +1,4 @@
 from enum import StrEnum, auto
-from app.enums import WordType
 
 
 class PluralType(StrEnum):

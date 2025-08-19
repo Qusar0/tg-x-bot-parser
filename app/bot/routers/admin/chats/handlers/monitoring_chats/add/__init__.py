@@ -1,5 +1,4 @@
 import asyncio
-from loguru import logger
 import app.bot.routers.admin.chats.global_state as global_state
 from aiogram import types, F
 from aiogram.fsm.context import FSMContext
@@ -172,7 +171,7 @@ async def save_loaded_chats(cb: types.CallbackQuery):
                 chat = await ChatRepo.add(chat.id, chat.title, f"@{chat.username}")
             else:
                 chat = await ChatRepo.add(chat.id, chat.title)
-        except Exception as e:
+        except Exception:
             chat = await ChatRepo.get_by_telegram_id(chat.id)
         chats.append(chat)
 

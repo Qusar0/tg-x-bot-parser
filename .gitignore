@@ -140,3 +140,4 @@ poetry.lock
 .idea
 config.dev.ini
 answers.json
+*.xlsx

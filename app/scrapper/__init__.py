@@ -10,7 +10,6 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from app.database.repo.Word import WordRepo
 from app.enums import WordType
@@ -20,7 +19,7 @@ from app.database.models.Word import Word
 from app.helpers import preprocess_text, is_word_match, is_duplicate, get_fetched_post_ids
 from app.queue import queue
 
-with open("cookies.txt", "r") as file:
+with open("cookies.txt") as file:
     COOKIE_JSON = file.read().rstrip()
 
 
@@ -34,7 +33,7 @@ class Scrapper:
         self.is_load_cookie = False
 
     def _load_driver(self):
-        options = uc.ChromeOptions()
+        # options = uc.ChromeOptions()
         self.driver = uc.Chrome(
             use_subprocess=False,
             # options=options,

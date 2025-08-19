@@ -12,7 +12,7 @@ def get_markup(is_last: bool):
 
 async def error_chat_exists_handler(message: types.Message, chat_entity: str, is_last: bool):
     await message.answer(
-        "Чат <b>{chat}</b> уже добавлен! ✅".format(chat=chat_entity),
+        f"Чат <b>{chat_entity}</b> уже добавлен! ✅",
         reply_markup=get_markup(is_last),
     )
     await asyncio.sleep(1)
@@ -48,7 +48,7 @@ async def error_username_not_occupied_handler(message: types.Message, chat_entit
 
 async def error_invite_request_sent_handler(message: types.Message, chat_entity: str, is_last: bool):
     await message.answer(
-        f"<b>❗️Заявка на вступление отправлена</b>, пожалуйста, после одобрения <u>отправьте ссылку еще раз:</u> {chat_entity}",
+        f"<b>❗️Заявка на вступление отправлена</b>, пожалуйста, после одобрения <u>отправьте ссылку еще раз:</u> {chat_entity}",  # noqa: E501
         reply_markup=get_markup(is_last),
     )
 

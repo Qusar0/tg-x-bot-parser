@@ -1,6 +1,7 @@
 import asyncio
 import time
 
+
 class MessageQueue:
     def __init__(self, delay):
         self._delay = delay

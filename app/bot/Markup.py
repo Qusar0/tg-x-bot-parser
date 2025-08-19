@@ -1,9 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from app.bot.callback_data import chats_cb, ChooseCentralChatForWordCb, settings_cb, WordMenuCb
+from app.bot.callback_data import chats_cb, WordMenuCb
 from app.enums import WordType
-from app.database.repo.User import UserRepo
-from app.settings import settings
 
 
 class Markup:
@@ -24,5 +22,3 @@ class Markup:
         )
 
         return markup.as_markup()
-
-    

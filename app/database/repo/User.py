@@ -1,4 +1,3 @@
-from tortoise.expressions import Q
 from app.database.models.User import User
 
 

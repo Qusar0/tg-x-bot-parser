@@ -16,7 +16,7 @@ async def on_startup():
 def import_routers():
     import app.bot.routers.admin.open_menu.handlers
     import app.bot.routers.admin.words.handlers
-    import app.bot.routers.admin.chats.handlers
+    import app.bot.routers.admin.chats.handlers  # noqa: F401
 
 
 async def run_bot():
