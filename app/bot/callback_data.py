@@ -73,5 +73,6 @@ class DeleteAllWordsCb(CallbackData, prefix="daw"):
 class WordShowCb(CallbackData, prefix="ws"):
     word_type: WordType
 
+
 class WordUploadingCb(CallbackData, prefix="wu"):
     word_type: WordType

@@ -1,6 +1,5 @@
 import os
 import json
-import typing
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 
@@ -47,9 +46,6 @@ class Settings:
     def _save_settings(self):
         with open(self.filename, "w") as f:
             json.dump(self.settings, f, indent=4)
-
-    def get_central_chats(self) -> list[int]:
-        return self.settings["central_chats"]
 
     def get_admins(self) -> list[int]:
         return self.settings["admins"]

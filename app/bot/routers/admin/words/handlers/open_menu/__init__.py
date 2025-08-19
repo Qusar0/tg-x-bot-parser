@@ -1,4 +1,4 @@
-from aiogram import types, F
+from aiogram import types
 from aiogram.fsm.context import FSMContext
 from app.bot.routers.admin import admin_router
 from app.bot.callback_data import WordMenuCb
@@ -7,9 +7,7 @@ from app.bot.routers.admin.words.Markup import Markup
 
 
 def get_keywords_menu_template() -> str:
-    return f"""
-<b>Перешли в меню ключ-слов</b> 🔑
-"""
+    return '<b>Перешли в меню ключ-слов</b> 🔑'
 
 
 @admin_router.callback_query(WordMenuCb.filter())

@@ -39,14 +39,9 @@ class Markup:
 
         nav_chats = chats[start:end]
 
-        is_change = False
-
         # Добавляем кнопки в клавиатуру
         for chat in nav_chats:
             is_checked = "✅ " if chat.is_choose else "❌ "
-
-            if chat.is_choose:
-                is_change = True
 
             markup.row(
                 InlineKeyboardButton(
