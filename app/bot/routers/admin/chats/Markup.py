@@ -134,7 +134,7 @@ class Markup:
             InlineKeyboardButton(text="👁️ Список чатов", callback_data=chats_show_cb),
         )
         markup.row(
-            InlineKeyboardButton(text="📗 Список чатов excel", callback_data=chats_uploading_cb)
+            InlineKeyboardButton(text="📗 Список чатов Excel", callback_data=chats_uploading_cb)
         )
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_cb))
 
