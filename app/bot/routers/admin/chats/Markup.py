@@ -18,6 +18,7 @@ from app.bot.callback_data import (
     ChatsCentralDeleteCb,
     ChooseChatCb,
     NavigationChatCb,
+    chats_uploading_cb,
 )
 from app.settings import settings
 from .phrases import cancel_chat_action
@@ -131,6 +132,9 @@ class Markup:
         )
         markup.row(
             InlineKeyboardButton(text="👁️ Список чатов", callback_data=chats_show_cb),
+        )
+        markup.row(
+            InlineKeyboardButton(text="📗 Список чатов Excel", callback_data=chats_uploading_cb)
         )
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_cb))
 

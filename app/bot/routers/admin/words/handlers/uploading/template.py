@@ -5,6 +5,7 @@ from app.database.repo.Word import WordRepo
 from app.enums import WordType
 from aiogram.types.input_file import FSInputFile
 from aiogram import types
+import tempfile
 
 
 def write_excel(worksheet: Worksheet, workbook: Workbook, value: Iterator[tuple[str]], name_column: str) -> None:
@@ -37,7 +38,10 @@ def write_excel(worksheet: Worksheet, workbook: Workbook, value: Iterator[tuple[
 
 
 async def generate_excel(word_type: WordType) -> str:
-    workbook = Workbook(f'{word_type}.xlsx')
+    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp_file:
+        temp_filename = tmp_file.name
+
+    workbook = Workbook(temp_filename)
     worksheet = workbook.add_worksheet()
 
     words = await WordRepo.get_all(word_type)
@@ -45,7 +49,7 @@ async def generate_excel(word_type: WordType) -> str:
 
     write_excel(worksheet, workbook, words_data, f'{word_type}')
     workbook.close()
-    return f'{word_type}.xlsx'
+    return temp_filename
 
 
 async def _process_word_type_upload(cb: types.CallbackQuery, word_type: WordType) -> None:

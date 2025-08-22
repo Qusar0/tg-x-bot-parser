@@ -13,6 +13,7 @@ chats_central_cb = "chats-central"
 chats_show_cb = "show-chats"
 chats_add_cb = "add-chats"
 chats_remove_cb = "remove-chats"
+chats_uploading_cb = "chats-excel"
 
 chats_central_add_cb = "add-central-chats"
 chats_central_remove_cb = "remove-central-chats"
