@@ -2,6 +2,7 @@ from xlsxwriter.workbook import Workbook
 from xlsxwriter.worksheet import Worksheet
 from collections.abc import Iterator
 from app.database.repo.Chat import ChatRepo
+import tempfile
 
 
 def write_excel(
@@ -28,7 +29,7 @@ def write_excel(
     max_len = len(name_column)
     for i, row in enumerate(value, start=1):
         if not row[0]:
-            row = ['НЕТ ССЫЛКИ']
+            row = ['Нет ссылки']
         if len(row[0]) > max_len:
             max_len = len(row[0])
         worksheet.write(i, num_column, row[0], border_format)
@@ -37,15 +38,18 @@ def write_excel(
 
 
 async def generate_excel() -> str:
-    workbook = Workbook('channel.xlsx')
+    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp_file:
+        temp_filename = tmp_file.name
+
+    workbook = Workbook(temp_filename)
     worksheet = workbook.add_worksheet()
 
     chats = await ChatRepo.get_all()
     chats_data = ((chat.title,) for chat in chats)
+    entity_data = ((chat.entity,) for chat in chats)
 
-    entity_data = ((entities.entity,) for entities in chats)
-
-    write_excel(worksheet, workbook, chats_data, 'Чаты', 0)
+    write_excel(worksheet, workbook, chats_data, 'Название чата', 0)
     write_excel(worksheet, workbook, entity_data, 'Ссылка', 1)
+
     workbook.close()
-    return 'channel.xlsx'
+    return temp_filename
