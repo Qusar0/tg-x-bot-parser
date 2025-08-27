@@ -5,6 +5,8 @@ from aiogram.fsm.context import FSMContext
 from app.bot.routers.admin import admin_router
 from app.bot.callback_data import (
     chats_add_cb,
+    chats_add_excel_cb,
+    chats_choose_add_cb,
     chats_add_loaded_chat_cb,
     chats_load_from_account,
     ChooseChatCb,
@@ -19,9 +21,19 @@ from app.bot.routers.admin.chats.phrases import cancel_chat_action
 from app.userbot.userbot_manager import userbot_manager
 from app.database.repo.Chat import ChatRepo
 from app.bot.routers.admin.chats.template import get_loaded_chats_template
+from app.bot.routers.admin.chats.handlers.monitoring_chats.add.loading_excel import ExcelChatParser
 
 IS_LOADING_CHATS = False
 CHATS = []
+
+
+@admin_router.callback_query(F.data == chats_choose_add_cb)
+async def monitoring_chats_menu(cb: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
+    await cb.message.edit_text(
+        "<b>💬 Перешли в меню выбора способа добавления чатов</b>",
+        reply_markup=Markup.choose_add_chats(),
+    )
 
 
 @admin_router.message(ChatsState.add, F.text == cancel_chat_action)
@@ -180,3 +192,79 @@ async def save_loaded_chats(cb: types.CallbackQuery):
         html_template,
         reply_markup=Markup.back_monitoring_chat(),
     )
+
+
+@admin_router.callback_query(F.data == chats_add_excel_cb)
+async def chats_add_excel_handler(cb: types.CallbackQuery, state: FSMContext):
+    await state.set_state(ChatsState.add_excel)
+    await cb.message.edit_reply_markup(reply_markup=None)
+
+    template_content = ExcelChatParser.create_template_excel()
+    template_file = types.BufferedInputFile(
+        template_content,
+        filename="Шаблон чатов.xlsx"
+    )
+
+    await cb.message.answer_document(
+        template_file,
+        caption="""
+📊 <b>Загрузка чатов из Excel файла</b>
+
+📋 <b>Формат файла:</b>
+• Колонка 1: <code>Название чата</code>
+• Колонка 2: <code>Ссылка</code>
+
+💡 <b>Допустимые форматы ссылок:</b>
+<code>@username
+https://t.me/username
+https://t.me/+abcd12345
+https://t.me/AAAAabcd12345
+1234567890</code>
+
+📎 <b>Отправьте Excel файл (.xlsx) с вашими чатами</b>
+
+⬆️ Выше прикреплен шаблон для примера
+""",
+        reply_markup=Markup.cancel_action(),
+    )
+
+
+@admin_router.message(F.document, ChatsState.add_excel)
+async def process_excel_file(message: types.Message, state: FSMContext):
+    if global_state.is_adding:
+        await message.answer("Я уже добавляю группы, пожалуйста подождите...", reply_markup=Markup.cancel_action())
+        return
+
+    document = message.document
+
+    await message.answer("⏳ <b>Обрабатываю Excel файл...</b>")
+
+    file = await message.bot.get_file(document.file_id)
+    file_content = await message.bot.download_file(file.file_path)
+
+    chats_data, parsing_errors = ExcelChatParser.parse_excel_file(file_content.getvalue())
+
+    if not chats_data:
+        await message.answer(
+            "⚠️ <b>В файле не найдено корректных чатов для добавления</b>",
+            reply_markup=Markup.cancel_action()
+        )
+        return
+
+    chat_entities = [chat['link'] for chat in chats_data]
+
+    await message.answer(f"✅ <b>Файл обработан успешно!</b>\n\nНайдено чатов: {len(chat_entities)}")
+
+    global_state.is_adding = True
+    global_state.adding_async_task = asyncio.ensure_future(start_subscribe(message, state, chat_entities))
+    await global_state.adding_async_task
+
+
+@admin_router.message(ChatsState.add_excel, F.text == cancel_chat_action)
+async def cancel_excel_action(message: types.Message, state: FSMContext):
+    await state.set_state(None)
+    if global_state.adding_async_task:
+        global_state.adding_async_task.cancel()
+        global_state.adding_async_task = None
+
+    await cancel_add_chat(message, state, False)
