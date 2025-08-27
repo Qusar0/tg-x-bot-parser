@@ -12,7 +12,7 @@ async def send_uploading_file_chats(cb: types.CallbackQuery, state: FSMContext):
 
     await cb.answer("Файл готов!")
 
-    file_name = 'Список чатов.xlsx'
+    file_name = 'Список_чатов.xlsx'
     excel_path = await generate_excel()
     excel_file = FSInputFile(excel_path, filename=file_name)
 
