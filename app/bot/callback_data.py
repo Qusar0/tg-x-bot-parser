@@ -12,6 +12,8 @@ chats_monitorings_cb = "chats-monitorings"
 chats_central_cb = "chats-central"
 chats_show_cb = "show-chats"
 chats_add_cb = "add-chats"
+chats_choose_add_cb = "choose-add-chats"
+chats_add_excel_cb = "add-chats-excel"
 chats_remove_cb = "remove-chats"
 chats_uploading_cb = "chats-excel"
 
