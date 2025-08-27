@@ -4,6 +4,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from app.bot.callback_data import (
     back_menu_cb,
     chats_add_cb,
+    chats_add_excel_cb,
+    chats_choose_add_cb,
     chats_cb,
     chats_load_from_account,
     chats_remove_cb,
@@ -124,7 +126,7 @@ class Markup:
     def monitoring_chats_menu() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
         markup.row(
-            InlineKeyboardButton(text="➕ Чат", callback_data=chats_add_cb),
+            InlineKeyboardButton(text="➕ Чат", callback_data=chats_choose_add_cb),
             InlineKeyboardButton(text="➖ Чат", callback_data=chats_remove_cb),
         )
         markup.row(
@@ -137,6 +139,19 @@ class Markup:
             InlineKeyboardButton(text="📗 Список чатов Excel", callback_data=chats_uploading_cb)
         )
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_cb))
+
+        return markup.as_markup()
+
+    @staticmethod
+    def choose_add_chats() -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+        markup.row(
+            InlineKeyboardButton(text='Загрузить из Excel', callback_data=chats_add_excel_cb)
+        )
+        markup.row(
+            InlineKeyboardButton(text="Загрузить вручную", callback_data=chats_add_cb)
+        )
+        markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_monitorings_cb))
 
         return markup.as_markup()
 
