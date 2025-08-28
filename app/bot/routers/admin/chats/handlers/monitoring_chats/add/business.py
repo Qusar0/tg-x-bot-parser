@@ -23,44 +23,41 @@ from app.userbot.userbot_manager import userbot_manager
 from app.config import config
 
 
-def get_chat_id(chat_obj) -> int | str:
+def get_chat_id(chat_obj) -> int | None:
     if not chat_obj:
         return ''
 
-    chat_id = getattr(chat_obj, 'id', '')
+    chat_id = getattr(chat_obj, 'id', None)
     if chat_id:
         return chat_id
 
-    chat_id = getattr(chat_obj, 'peer_id', '')
+    chat_id = getattr(chat_obj, 'peer_id', None)
     if chat_id:
         return chat_id
 
-    inner_chat = getattr(chat_obj, 'chat', '')
+    inner_chat = getattr(chat_obj, 'chat', None)
     if inner_chat:
         return get_chat_id(inner_chat)
 
-    return ''
+    return None
 
 
 def get_chat_title(chat_obj) -> str:
-    fallback = "Неизвестный чат"
     if not chat_obj:
-        return fallback
+        return "Неизвестный чат"
 
-    title = getattr(chat_obj, 'title', '')
-    if title:
+    if title := getattr(chat_obj, 'title', ''):
         return title
 
     first_name = getattr(chat_obj, 'first_name', '')
-    last_name = getattr(chat_obj, 'last_name', '')
     if first_name:
-        return f"{first_name} {last_name or ''}".strip()
+        last_name = getattr(chat_obj, 'last_name', '')
+        return f"{first_name} {last_name}".strip()
 
-    username = getattr(chat_obj, 'username', '')
-    if username:
+    if username := getattr(chat_obj, 'username', ''):
         return f"@{username}"
 
-    return fallback
+    return "Неизвестный чат"
 
 
 async def reset_store(state: FSMContext):

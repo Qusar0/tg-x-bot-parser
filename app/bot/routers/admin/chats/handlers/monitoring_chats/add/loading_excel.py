@@ -1,12 +1,12 @@
 import pandas as pd
 import io
-from typing import List
+from typing import List, Tuple
 from loguru import logger
 
 
 class ExcelChatParser:
     @staticmethod
-    def parse_excel_file(file_content: bytes) -> List[str]:
+    def parse_excel_file(file_content: bytes) -> Tuple[List[dict], List[str]]:
         excel_file = io.BytesIO(file_content)
 
         df = pd.read_excel(excel_file, engine='openpyxl')
@@ -19,6 +19,8 @@ class ExcelChatParser:
             chat_name = str(row['Название чата']).strip()
             chat_link = str(row['Ссылка']).strip()
 
+            validation_errors = ExcelChatParser._validate_chat_data(chat_name, chat_link, index + 1)
+
             normalized_link = ExcelChatParser._normalize_chat_link(chat_link)
 
             chats.append({
@@ -28,8 +30,7 @@ class ExcelChatParser:
                 'row_number': index + 1
             })
 
-        logger.info(f"Обработана строка {index + 1}: {chat_name}")
-        return chats
+        return chats, validation_errors
 
     @staticmethod
     def _validate_chat_data(chat_name: str, chat_link: str, row_number: int) -> List[str]:
@@ -46,6 +47,9 @@ class ExcelChatParser:
 
         if chat_link and not ExcelChatParser._is_valid_chat_link(chat_link):
             errors.append(f"Строка {row_number}: Некорректный формат ссылки '{chat_link}'")
+
+        if not errors:
+            logger.info(f"Успешно бработана строка {row_number}: {chat_name}")
 
         return errors
 

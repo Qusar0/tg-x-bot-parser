@@ -242,7 +242,11 @@ async def process_excel_file(message: types.Message, state: FSMContext):
     file = await message.bot.get_file(document.file_id)
     file_content = await message.bot.download_file(file.file_path)
 
-    chats_data = ExcelChatParser.parse_excel_file(file_content.getvalue())
+    chats_data, parsing_errors = ExcelChatParser.parse_excel_file(file_content.getvalue())
+
+    if parsing_errors:
+        error_message = "⚠️ <b>Найдены ошибки в файле:</b>\n\n" + "\n".join(parsing_errors)
+        await message.answer(error_message)
 
     if not chats_data:
         await message.answer(
