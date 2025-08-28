@@ -146,10 +146,10 @@ class Markup:
     def choose_add_chats() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
         markup.row(
-            InlineKeyboardButton(text='Загрузить из Excel', callback_data=chats_add_excel_cb)
+            InlineKeyboardButton(text='📗 Загрузить из Excel', callback_data=chats_add_excel_cb)
         )
         markup.row(
-            InlineKeyboardButton(text="Загрузить вручную", callback_data=chats_add_cb)
+            InlineKeyboardButton(text="🤚 Загрузить вручную", callback_data=chats_add_cb)
         )
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_monitorings_cb))
 

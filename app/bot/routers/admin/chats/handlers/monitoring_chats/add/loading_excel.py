@@ -1,38 +1,42 @@
 import pandas as pd
 import io
 from typing import List, Tuple
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExcelChatParser:
     @staticmethod
     def parse_excel_file(file_content: bytes) -> Tuple[List[dict], List[str]]:
-        try:
-            excel_file = io.BytesIO(file_content)
+        excel_file = io.BytesIO(file_content)
 
-            df = pd.read_excel(excel_file, engine='openpyxl')
+        df = pd.read_excel(excel_file, engine='openpyxl')
 
-            df = df.dropna(subset=['Название чата', 'Ссылка'])
+        df = df.dropna(subset=['Название чата', 'Ссылка'])
 
-            chats = []
-            errors = []
+        chats = []
+        errors = []
 
-            for index, row in df.iterrows():
-                chat_name = str(row['Название чата']).strip()
-                chat_link = str(row['Ссылка']).strip()
+        for index, row in df.iterrows():
+            chat_name = str(row['Название чата']).strip()
+            chat_link = str(row['Ссылка']).strip()
 
-                normalized_link = ExcelChatParser._normalize_chat_link(chat_link)
+            validation_errors = ExcelChatParser._validate_chat_data(chat_name, chat_link, index + 1)
+            errors.extend(validation_errors)
 
-                chats.append({
-                    'name': chat_name,
-                    'link': normalized_link,
-                    'original_link': chat_link,
-                    'row_number': index + 1
-                })
+            normalized_link = ExcelChatParser._normalize_chat_link(chat_link)
 
-            return chats, errors
+            chats.append({
+                'name': chat_name,
+                'link': normalized_link,
+                'original_link': chat_link,
+                'row_number': index + 1
+            })
 
-        except Exception as e:
-            return [], [f"Ошибка при обработке файла: {str(e)}"]
+        logger.debug(f"Обработана строка {index + 1}: {chat_name}")
+        return chats, errors
 
     @staticmethod
     def _validate_chat_data(chat_name: str, chat_link: str, row_number: int) -> List[str]:
