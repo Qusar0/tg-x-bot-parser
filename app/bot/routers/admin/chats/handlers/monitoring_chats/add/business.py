@@ -23,39 +23,40 @@ from app.userbot.userbot_manager import userbot_manager
 from app.config import config
 
 
-def get_chat_id(chat_obj) -> int | None:
+def get_chat_id(chat_obj) -> int | str:
     if not chat_obj:
-        return None
+        return ''
 
-    chat_id = getattr(chat_obj, 'id', None)
+    chat_id = getattr(chat_obj, 'id', '')
     if chat_id:
         return chat_id
 
-    chat_id = getattr(chat_obj, 'peer_id', None)
+    chat_id = getattr(chat_obj, 'peer_id', '')
     if chat_id:
         return chat_id
 
-    inner_chat = getattr(chat_obj, 'chat', None)
+    inner_chat = getattr(chat_obj, 'chat', '')
     if inner_chat:
         return get_chat_id(inner_chat)
 
-    return None
+    return ''
 
 
-def get_chat_title(chat_obj, fallback: str = "Неизвестный чат") -> str:
+def get_chat_title(chat_obj) -> str:
+    fallback = "Неизвестный чат"
     if not chat_obj:
         return fallback
 
-    title = getattr(chat_obj, 'title', None)
+    title = getattr(chat_obj, 'title', '')
     if title:
         return title
 
-    first_name = getattr(chat_obj, 'first_name', None)
-    last_name = getattr(chat_obj, 'last_name', None)
+    first_name = getattr(chat_obj, 'first_name', '')
+    last_name = getattr(chat_obj, 'last_name', '')
     if first_name:
         return f"{first_name} {last_name or ''}".strip()
 
-    username = getattr(chat_obj, 'username', None)
+    username = getattr(chat_obj, 'username', '')
     if username:
         return f"@{username}"
 

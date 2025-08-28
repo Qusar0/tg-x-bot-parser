@@ -1,15 +1,12 @@
 import pandas as pd
 import io
-from typing import List, Tuple
-import logging
-
-
-logger = logging.getLogger(__name__)
+from typing import List
+from loguru import logger
 
 
 class ExcelChatParser:
     @staticmethod
-    def parse_excel_file(file_content: bytes) -> Tuple[List[dict], List[str]]:
+    def parse_excel_file(file_content: bytes) -> List[str]:
         excel_file = io.BytesIO(file_content)
 
         df = pd.read_excel(excel_file, engine='openpyxl')
@@ -17,14 +14,10 @@ class ExcelChatParser:
         df = df.dropna(subset=['Название чата', 'Ссылка'])
 
         chats = []
-        errors = []
 
         for index, row in df.iterrows():
             chat_name = str(row['Название чата']).strip()
             chat_link = str(row['Ссылка']).strip()
-
-            validation_errors = ExcelChatParser._validate_chat_data(chat_name, chat_link, index + 1)
-            errors.extend(validation_errors)
 
             normalized_link = ExcelChatParser._normalize_chat_link(chat_link)
 
@@ -35,8 +28,8 @@ class ExcelChatParser:
                 'row_number': index + 1
             })
 
-        logger.debug(f"Обработана строка {index + 1}: {chat_name}")
-        return chats, errors
+        logger.info(f"Обработана строка {index + 1}: {chat_name}")
+        return chats
 
     @staticmethod
     def _validate_chat_data(chat_name: str, chat_link: str, row_number: int) -> List[str]:
