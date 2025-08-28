@@ -1,0 +1,51 @@
+import pandas as pd
+import io
+from typing import List, Tuple
+from loguru import logger
+from app.enums import WordType
+
+
+class ExcelWordParser:
+    @staticmethod
+    def parse_excel_file(file_content: bytes, word_type: WordType) -> List[str]:
+        excel_file = io.BytesIO(file_content)
+
+        df = pd.read_excel(excel_file, engine='openpyxl')
+
+        column_name = 'keyword' if word_type == WordType.keyword else 'stopword'
+
+        if column_name not in df.columns:
+            raise ValueError(f"Столбец '{column_name}' не найден в Excel файле")
+
+        df = df.dropna(subset=[column_name])
+
+        words = []
+
+        for index, row in df.iterrows():
+            word = str(row[column_name]).strip()
+            if word and word != 'nan':
+                words.append(word)
+
+        return words
+
+
+    @staticmethod
+    def create_template_excel(word_type: WordType) -> bytes:
+        column_name = 'keyword' if word_type == WordType.keyword else 'stopword'
+
+        data = {
+            column_name: [
+                'пример слова 1',
+                'пример слова 2',
+                'пример слова 3'
+            ],
+        }
+
+        df = pd.DataFrame(data)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Слова')
+
+        output.seek(0)
+        return output.getvalue()
