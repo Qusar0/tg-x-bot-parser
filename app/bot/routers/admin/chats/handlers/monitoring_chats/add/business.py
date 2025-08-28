@@ -23,6 +23,43 @@ from app.userbot.userbot_manager import userbot_manager
 from app.config import config
 
 
+def get_chat_id(chat_obj) -> int | None:
+    if not chat_obj:
+        return ''
+
+    chat_id = getattr(chat_obj, 'id', None)
+    if chat_id:
+        return chat_id
+
+    chat_id = getattr(chat_obj, 'peer_id', None)
+    if chat_id:
+        return chat_id
+
+    inner_chat = getattr(chat_obj, 'chat', None)
+    if inner_chat:
+        return get_chat_id(inner_chat)
+
+    return None
+
+
+def get_chat_title(chat_obj) -> str:
+    if not chat_obj:
+        return "Неизвестный чат"
+
+    if title := getattr(chat_obj, 'title', ''):
+        return title
+
+    first_name = getattr(chat_obj, 'first_name', '')
+    if first_name:
+        last_name = getattr(chat_obj, 'last_name', '')
+        return f"{first_name} {last_name}".strip()
+
+    if username := getattr(chat_obj, 'username', ''):
+        return f"@{username}"
+
+    return "Неизвестный чат"
+
+
 async def reset_store(state: FSMContext):
     global_state.is_adding = False
     global_state.added_usernames = []
@@ -107,13 +144,28 @@ async def join_chat(chat_entity: Union[str, int], chat: pyrogram_types.Chat | No
         if not chat:
             chat = await userbot_manager.join_chat(chat_entity)
 
-        await add_chat_to_db(chat.id, chat.title, chat_entity)
+        chat_id = get_chat_id(chat)
+        chat_title = get_chat_title(chat, str(chat_entity))
+
+        if not chat_id:
+            logger.error(f"Не удалось получить ID чата для {chat_entity}, тип объекта: {type(chat)}")
+            raise ValueError(f"Не удалось получить ID чата для {chat_entity}")
+
+        await add_chat_to_db(chat_id, chat_title, chat_entity)
         return True
     except ChatExistsError as ex:
         raise ex
     except UserAlreadyParticipant:
         chat = await userbot_manager.get_chat(chat_entity)
-        await add_chat_to_db(chat.id, chat.title, chat_entity)
+
+        chat_id = get_chat_id(chat)
+        chat_title = get_chat_title(chat, str(chat_entity))
+
+        if not chat_id:
+            logger.error(f"Не удалось получить ID чата для {chat_entity}, тип объекта: {type(chat)}")
+            raise ValueError(f"Не удалось получить ID чата для {chat_entity}")
+
+        await add_chat_to_db(chat_id, chat_title, chat_entity)
         return True
     except Exception as ex:
         global_state.added_error_usernames.append(chat_entity)
@@ -124,14 +176,15 @@ async def start_subscribe(message: types.Message, state: FSMContext, chat_entiti
     await message.answer(f"⏳ <b>Начинаю добавление, количество чатов: {len(chat_entities)}</b>")
 
     chats = await userbot_manager.get_dialogs(is_only_groups=True)
-    exists_chats_id = [chat.id for chat in chats]
+    exists_chats_id = [get_chat_id(chat) for chat in chats if get_chat_id(chat)]
 
     for chat_entity in chat_entities:
         try:
             is_last = chat_entity == chat_entities[-1]
 
             candidate = await userbot_manager.get_chat(chat_entity)
-            candidate = candidate if candidate and candidate.id in exists_chats_id else None
+            candidate_id = get_chat_id(candidate)
+            candidate = candidate if candidate and candidate_id in exists_chats_id else None
 
             is_added = await join_chat(chat_entity, candidate)
             if is_added:
