@@ -1,7 +1,6 @@
 import pandas as pd
 import io
-from typing import List, Tuple
-from loguru import logger
+from typing import List
 from app.enums import WordType
 
 
@@ -12,7 +11,7 @@ class ExcelWordParser:
 
         df = pd.read_excel(excel_file, engine='openpyxl')
 
-        column_name = 'keyword' if word_type == WordType.keyword else 'stopword'
+        column_name = 'Ключ-слова' if word_type.value == 'keyword' else 'Стоп-слова'
 
         if column_name not in df.columns:
             raise ValueError(f"Столбец '{column_name}' не найден в Excel файле")
@@ -21,17 +20,16 @@ class ExcelWordParser:
 
         words = []
 
-        for index, row in df.iterrows():
+        for _, row in df.iterrows():
             word = str(row[column_name]).strip()
             if word and word != 'nan':
                 words.append(word)
 
         return words
 
-
     @staticmethod
     def create_template_excel(word_type: WordType) -> bytes:
-        column_name = 'keyword' if word_type == WordType.keyword else 'stopword'
+        column_name = 'Ключ-слова' if word_type.value == 'keyword' else 'Стоп-слова'
 
         data = {
             column_name: [

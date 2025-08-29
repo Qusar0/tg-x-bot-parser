@@ -1,6 +1,4 @@
 from aiogram.filters.callback_data import CallbackData
-from pandas.io.clipboard import clipboard_set
-
 from app.enums import WordType
 
 settings_cb = "settings"

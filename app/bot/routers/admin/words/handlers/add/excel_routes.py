@@ -1,6 +1,6 @@
 from aiogram import types, F
 from aiogram.fsm.context import FSMContext
-from aiogram.types.input_file import FSInputFile, BufferedInputFile
+from aiogram.types.input_file import BufferedInputFile
 from app.bot.routers.admin import admin_router
 from app.bot.callback_data import WordExcelLoadCb, ChooseChatForExcelCb
 from app.bot.routers.admin.words.State import WordState
@@ -113,11 +113,11 @@ async def cancel_excel_upload(cb: types.CallbackQuery, state: FSMContext):
             word_type_enum = WordType(word_type)
             await cb.message.delete()
             await cb.message.answer(
-                f"❌ <b>Загрузка отменена</b>",
+                "❌ <b>Загрузка отменена</b>",
                 reply_markup=Markup.open_menu(word_type_enum)
             )
         else:
             await cb.message.delete()
             await cb.message.answer("❌ <b>Загрузка отменена</b>")
-        
+
         await cb.answer()

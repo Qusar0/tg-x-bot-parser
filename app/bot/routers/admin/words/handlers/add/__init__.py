@@ -9,7 +9,6 @@ from app.enums import WordType
 from app.bot.utils.plural import plural_value, PluralType
 from app.bot.callback_data import ChooseCentralChatForWordCb, WordMenuAddCb, WordManualAddCb
 from app.settings import settings
-from . import excel_upload  # noqa
 
 
 @admin_router.callback_query(WordMenuAddCb.filter())
@@ -25,7 +24,7 @@ async def add_word_handler(cb: types.CallbackQuery, callback_data: WordMenuAddCb
         return
 
     word_type_name = "ключевых слов" if word_type == WordType.keyword else "стоп-слов"
-    
+
     await cb.message.edit_text(
         f"📝 <b>Добавление {word_type_name}</b>\n\n"
         f"Выберите способ добавления:",
