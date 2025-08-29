@@ -79,3 +79,16 @@ class WordShowCb(CallbackData, prefix="ws"):
 
 class WordUploadingCb(CallbackData, prefix="wu"):
     word_type: WordType
+
+
+class WordExcelLoadCb(CallbackData, prefix="wel"):
+    word_type: WordType
+
+
+class WordManualAddCb(CallbackData, prefix="wma"):
+    word_type: WordType
+
+
+class ChooseChatForExcelCb(CallbackData, prefix="cce"):
+    word_type: WordType
+    chat_id: int
