@@ -9,6 +9,7 @@ from app.enums import WordType
 from app.bot.utils.plural import plural_value, PluralType
 from app.bot.callback_data import ChooseCentralChatForWordCb, WordMenuAddCb, WordManualAddCb
 from app.settings import settings
+from app.bot.routers.admin.words.handlers.add import excel_routes  # noqa
 
 
 @admin_router.callback_query(WordMenuAddCb.filter())

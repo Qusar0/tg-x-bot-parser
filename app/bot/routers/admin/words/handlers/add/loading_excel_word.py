@@ -11,7 +11,7 @@ class ExcelWordParser:
 
         df = pd.read_excel(excel_file, engine='openpyxl')
 
-        column_name = 'Ключ-слова' if word_type.value == 'keyword' else 'Стоп-слова'
+        column_name = 'Ключ-слова' if word_type == WordType.keyword else 'Стоп-слова'
 
         if column_name not in df.columns:
             raise ValueError(f"Столбец '{column_name}' не найден в Excel файле")
@@ -29,7 +29,7 @@ class ExcelWordParser:
 
     @staticmethod
     def create_template_excel(word_type: WordType) -> bytes:
-        column_name = 'Ключ-слова' if word_type.value == 'keyword' else 'Стоп-слова'
+        column_name = 'Ключ-слова' if word_type == WordType.keyword else 'Стоп-слова'
 
         data = {
             column_name: [
