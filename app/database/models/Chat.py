@@ -7,6 +7,8 @@ class Chat(Model):
     title = fields.CharField(max_length=255)
     entity = fields.CharField(max_length=255, null=True)
 
+    rating = fields.IntField(default=0)
+
     messages_count = fields.IntField(default=0)
 
     created_at = fields.DatetimeField(auto_now_add=True)
