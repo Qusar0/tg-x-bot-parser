@@ -18,8 +18,8 @@ class ChatRepo:
         return chats
 
     @staticmethod
-    async def add(telegram_id: int, title: str, entity: str | None = None) -> Chat:
-        chat = await Chat.create(telegram_id=telegram_id, title=title, entity=entity)
+    async def add(telegram_id: int, title: str, entity: str | None = None, rating: int = 0) -> Chat:
+        chat = await Chat.create(telegram_id=telegram_id, title=title, entity=entity, rating=rating)
         return chat
 
     @staticmethod
