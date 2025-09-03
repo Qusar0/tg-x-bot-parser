@@ -95,9 +95,9 @@ async def handle_rating_selection(cb: types.CallbackQuery, callback_data: ChatRa
 
         await cb.answer(f"✅ Рейтинг установлен: {rating}", show_alert=True)
         await cb.message.edit_text(
-            f"<b>✅ Рейтинг успешно обновлён!</b>\n\n"
+            f"<b>⭐ Рейтинг успешно обновлён!</b>\n\n"
             f"<b>Чат:</b> {chat.title}\n"
-            f"<b>Новый рейтинг:</b> ⭐{rating}",
+            f"<b>Новый рейтинг:</b>✅ {rating}",
             reply_markup=Markup.rating_chats_menu()
         )
     else:
