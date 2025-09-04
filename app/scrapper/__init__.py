@@ -10,7 +10,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
 from app.database.repo.Word import WordRepo
 from app.enums import WordType
 from app.settings import settings
@@ -61,11 +61,15 @@ class Scrapper:
 
                     await self.input_search_keywords(keyword.title, is_first_search)
                     self.load_more_posts()
+                except ElementNotInteractableException:
+                    logger.warning('На странице не найдено больше записей.')
+                    continue
+                except Exception as ex:
+                    logger.error(f'Ошибка при обработке записей {ex}')
+                    continue
+                finally:
                     await self.parse_posts(keyword.central_chat_id, stopwords)
                     await asyncio.sleep(10)
-                except NoSuchElementException as ex:
-                    print(ex)
-
         except Exception as ex:
             logger.error(ex)
             traceback.print_exc()

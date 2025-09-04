@@ -219,7 +219,7 @@ class Markup:
             )
 
         for i in range(0, len(buttons), 5):
-            markup.row(*buttons[i:i+5])
+            markup.row(*buttons[i:i + 5])
 
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=chats_change_rating_cb))
 
@@ -230,7 +230,7 @@ class Markup:
         markup = InlineKeyboardBuilder()
 
         for chat in chats:
-            rating_text = f"⭐{chat.rating}" if chat.rating > 0 else "❌"
+            rating_text = f"{chat.rating}⭐" if chat.rating > 0 else "❌"
             markup.row(
                 InlineKeyboardButton(
                     text=f"{rating_text} {chat.title}",
