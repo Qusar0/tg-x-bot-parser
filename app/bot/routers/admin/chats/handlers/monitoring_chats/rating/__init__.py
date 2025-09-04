@@ -43,7 +43,7 @@ async def show_zero_rating_chats(cb: types.CallbackQuery, state: FSMContext):
 async def show_all_chats_for_reevaluation(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
 
-    chats = await ChatRepo.get_all()
+    chats = await ChatRepo.get_by_rating_greater_than(0)
 
     if not chats:
         await cb.answer("❌ Чаты не найдены", show_alert=True)

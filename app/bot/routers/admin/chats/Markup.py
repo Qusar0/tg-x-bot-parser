@@ -208,7 +208,7 @@ class Markup:
     @staticmethod
     def rating_keyboard(chat_id: int) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
-        
+
         buttons = []
         for i in range(1, 11):
             buttons.append(
@@ -217,18 +217,18 @@ class Markup:
                     callback_data=ChatRatingCb(chat_id=chat_id, rating=i).pack()
                 )
             )
-        
+
         for i in range(0, len(buttons), 5):
             markup.row(*buttons[i:i+5])
-        
+
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=chats_change_rating_cb))
-        
+
         return markup.as_markup()
 
     @staticmethod
     def chat_list_for_rating(chats: list, back_callback: str = chats_change_rating_cb) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
-        
+
         for chat in chats:
             rating_text = f"⭐{chat.rating}" if chat.rating > 0 else "❌"
             markup.row(
@@ -237,7 +237,7 @@ class Markup:
                     callback_data=f"rate_chat_{chat.telegram_id}"
                 )
             )
-        
+
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
-        
+
         return markup.as_markup()

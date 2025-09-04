@@ -32,6 +32,7 @@ class ChatRatingCb(CallbackData, prefix="cr"):
     chat_id: int
     rating: int
 
+
 class ChooseCentralChatForWordCb(CallbackData, prefix="pqt-1"):
     word_type: WordType
     chat_id: int

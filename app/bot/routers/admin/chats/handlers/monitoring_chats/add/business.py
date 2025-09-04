@@ -178,7 +178,7 @@ async def start_subscribe(message: types.Message, state: FSMContext, chat_entiti
         chats_ratings = {chat['link']: chat['rating'] for chat in chats_data}
     else:
         chats_ratings = {}
-    
+
     await message.answer(f"⏳ <b>Начинаю добавление, количество чатов: {len(chat_entities)}</b>")
 
     chats = await userbot_manager.get_dialogs(is_only_groups=True)
