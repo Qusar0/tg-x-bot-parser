@@ -18,8 +18,8 @@ class ChatRepo:
         return chats
 
     @staticmethod
-    async def add(telegram_id: int, title: str, entity: str | None = None) -> Chat:
-        chat = await Chat.create(telegram_id=telegram_id, title=title, entity=entity)
+    async def add(telegram_id: int, title: str, entity: str | None = None, rating: int = 0) -> Chat:
+        chat = await Chat.create(telegram_id=telegram_id, title=title, entity=entity, rating=rating)
         return chat
 
     @staticmethod
@@ -29,4 +29,23 @@ class ChatRepo:
             await chat.delete()
             return True
 
+        return False
+
+    @staticmethod
+    async def get_by_rating(rating: int) -> list[Chat]:
+        chats = await Chat.filter(rating=rating).all()
+        return chats
+
+    @staticmethod
+    async def get_by_rating_greater_than(min_rating: int) -> list[Chat]:
+        chats = await Chat.filter(rating__gt=min_rating).all()
+        return chats
+
+    @staticmethod
+    async def update_rating(telegram_id: int, rating: int) -> bool:
+        chat = await Chat.filter(telegram_id=telegram_id).first()
+        if chat:
+            chat.rating = rating
+            await chat.save()
+            return True
         return False

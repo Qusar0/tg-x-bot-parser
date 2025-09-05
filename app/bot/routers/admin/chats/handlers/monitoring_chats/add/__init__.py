@@ -213,6 +213,7 @@ async def chats_add_excel_handler(cb: types.CallbackQuery, state: FSMContext):
 📋 <b>Формат файла:</b>
 • Колонка 1: <code>Название чата</code>
 • Колонка 2: <code>Ссылка</code>
+• Колонка 3: <code>Рейтинг</code> (необязательно, по умолчанию 0)
 
 💡 <b>Допустимые форматы ссылок:</b>
 <code>@username
@@ -220,6 +221,10 @@ https://t.me/username
 https://t.me/+abcd12345
 https://t.me/AAAAabcd12345
 1234567890</code>
+
+🏆 <b>Рейтинг:</b>
+• Любое число (например: 1, 5, 10)
+• Пустое поле = 0 по умолчанию
 
 📎 <b>Отправьте Excel файл (.xlsx) с вашими чатами</b>
 
@@ -260,7 +265,7 @@ async def process_excel_file(message: types.Message, state: FSMContext):
     await message.answer(f"✅ <b>Файл обработан успешно!</b>\n\nНайдено чатов: {len(chat_entities)}")
 
     global_state.is_adding = True
-    global_state.adding_async_task = asyncio.ensure_future(start_subscribe(message, state, chat_entities))
+    global_state.adding_async_task = asyncio.ensure_future(start_subscribe(message, state, chats_data=chats_data))
     await global_state.adding_async_task
 
 

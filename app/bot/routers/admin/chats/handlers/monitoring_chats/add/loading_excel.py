@@ -18,6 +18,12 @@ class ExcelChatParser:
         for index, row in df.iterrows():
             chat_name = str(row['Название чата']).strip()
             chat_link = str(row['Ссылка']).strip()
+            chat_rating_raw = str(row['Рейтинг']).strip()
+
+            try:
+                chat_rating = int(chat_rating_raw) if chat_rating_raw and chat_rating_raw != 'nan' else 0
+            except (ValueError, TypeError):
+                chat_rating = 0
 
             validation_errors = ExcelChatParser._validate_chat_data(chat_name, chat_link, index + 1)
 
@@ -27,6 +33,7 @@ class ExcelChatParser:
                 'name': chat_name,
                 'link': normalized_link,
                 'original_link': chat_link,
+                'rating': chat_rating,
                 'row_number': index + 1
             })
 
@@ -95,6 +102,12 @@ class ExcelChatParser:
                 'https://t.me/username',
                 'https://t.me/+abcd12345',
                 'https://t.me/AAAAabcd12345'
+            ],
+            'Рейтинг': [
+                5,
+                3,
+                '',
+                10
             ]
         }
 

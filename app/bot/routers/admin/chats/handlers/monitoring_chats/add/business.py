@@ -1,6 +1,5 @@
 import asyncio
 import app.bot.routers.admin.chats.global_state as global_state
-from typing import List, Union
 from loguru import logger
 from aiogram import types
 from aiogram.fsm.context import FSMContext
@@ -124,13 +123,13 @@ async def cancel_add_chat(message: types.Message, state: FSMContext, is_done=Tru
         await reset_store(state)
 
 
-async def add_chat_to_db(chat_id: int, chat_title: str, chat_entity: str | None):
-    await ChatRepo.add(chat_id, chat_title, chat_entity)
+async def add_chat_to_db(chat_id: int, chat_title: str, chat_entity: str | None, rating: int = 0):
+    await ChatRepo.add(chat_id, chat_title, chat_entity, rating)
     global_state.added_usernames.append(chat_entity)
     return True
 
 
-async def join_chat(chat_entity: Union[str, int], chat: pyrogram_types.Chat | None = None) -> bool:
+async def join_chat(chat_entity: str | int, chat: pyrogram_types.Chat | None = None, rating: int = 0) -> bool:
     try:
         candidate = await ChatRepo.get_by_entity(chat_entity)
         if candidate:
@@ -138,20 +137,20 @@ async def join_chat(chat_entity: Union[str, int], chat: pyrogram_types.Chat | No
 
         if chat_entity.isnumeric():
             logger.debug(f"Передали числовой ID: {chat_entity}")
-            await add_chat_to_db(int(chat_entity), "🟡 Приватный чат")
+            await add_chat_to_db(int(chat_entity), "🟡 Приватный чат", chat_entity, rating)
             return True
 
         if not chat:
             chat = await userbot_manager.join_chat(chat_entity)
 
         chat_id = get_chat_id(chat)
-        chat_title = get_chat_title(chat, str(chat_entity))
+        chat_title = get_chat_title(chat)
 
         if not chat_id:
             logger.error(f"Не удалось получить ID чата для {chat_entity}, тип объекта: {type(chat)}")
             raise ValueError(f"Не удалось получить ID чата для {chat_entity}")
 
-        await add_chat_to_db(chat_id, chat_title, chat_entity)
+        await add_chat_to_db(chat_id, chat_title, chat_entity, rating)
         return True
     except ChatExistsError as ex:
         raise ex
@@ -159,20 +158,29 @@ async def join_chat(chat_entity: Union[str, int], chat: pyrogram_types.Chat | No
         chat = await userbot_manager.get_chat(chat_entity)
 
         chat_id = get_chat_id(chat)
-        chat_title = get_chat_title(chat, str(chat_entity))
+        chat_title = get_chat_title(chat)
 
         if not chat_id:
             logger.error(f"Не удалось получить ID чата для {chat_entity}, тип объекта: {type(chat)}")
             raise ValueError(f"Не удалось получить ID чата для {chat_entity}")
 
-        await add_chat_to_db(chat_id, chat_title, chat_entity)
+        await add_chat_to_db(chat_id, chat_title, chat_entity, rating)
         return True
     except Exception as ex:
         global_state.added_error_usernames.append(chat_entity)
         raise ex
 
 
-async def start_subscribe(message: types.Message, state: FSMContext, chat_entities: List[str]):  # noqa
+async def start_subscribe(  # noqa: C901
+    message: types.Message,
+    state: FSMContext,
+    chat_entities: list[str] = None,
+    chats_data: list[dict] = None,
+):
+    chats_data = chats_data or []
+    chat_entities = [chat['link'] for chat in chats_data]
+    chats_ratings = {chat['link']: chat['rating'] for chat in chats_data}
+
     await message.answer(f"⏳ <b>Начинаю добавление, количество чатов: {len(chat_entities)}</b>")
 
     chats = await userbot_manager.get_dialogs(is_only_groups=True)
@@ -186,7 +194,8 @@ async def start_subscribe(message: types.Message, state: FSMContext, chat_entiti
             candidate_id = get_chat_id(candidate)
             candidate = candidate if candidate and candidate_id in exists_chats_id else None
 
-            is_added = await join_chat(chat_entity, candidate)
+            chat_rating = chats_ratings.get(chat_entity, 0)
+            is_added = await join_chat(chat_entity, candidate, chat_rating)
             if is_added:
                 if candidate:
                     await send_added_joined_chat(message, chat_entity, is_last)
@@ -216,7 +225,6 @@ async def start_subscribe(message: types.Message, state: FSMContext, chat_entiti
             else:
                 raise ex
         except Exception as ex:
-            print(type(ex))
             await error_handler(ex, message, chat_entity, is_last)
 
     return await cancel_add_chat(message, state, True)
