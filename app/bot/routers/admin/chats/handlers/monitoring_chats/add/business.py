@@ -1,6 +1,5 @@
 import asyncio
 import app.bot.routers.admin.chats.global_state as global_state
-from typing import List, Union
 from loguru import logger
 from aiogram import types
 from aiogram.fsm.context import FSMContext
@@ -130,7 +129,7 @@ async def add_chat_to_db(chat_id: int, chat_title: str, chat_entity: str | None,
     return True
 
 
-async def join_chat(chat_entity: Union[str, int], chat: pyrogram_types.Chat | None = None, rating: int = 0) -> bool:
+async def join_chat(chat_entity: str | int, chat: pyrogram_types.Chat | None = None, rating: int = 0) -> bool:
     try:
         candidate = await ChatRepo.get_by_entity(chat_entity)
         if candidate:
@@ -172,12 +171,15 @@ async def join_chat(chat_entity: Union[str, int], chat: pyrogram_types.Chat | No
         raise ex
 
 
-async def start_subscribe(message: types.Message, state: FSMContext, chat_entities: List[str] = None, chats_data: List[dict] = None):
-    if chats_data:
-        chat_entities = [chat['link'] for chat in chats_data]
-        chats_ratings = {chat['link']: chat['rating'] for chat in chats_data}
-    else:
-        chats_ratings = {}
+async def start_subscribe(  # noqa: C901
+    message: types.Message,
+    state: FSMContext,
+    chat_entities: list[str] = None,
+    chats_data: list[dict] = None,
+):
+    chats_data = chats_data or []
+    chat_entities = [chat['link'] for chat in chats_data]
+    chats_ratings = {chat['link']: chat['rating'] for chat in chats_data}
 
     await message.answer(f"⏳ <b>Начинаю добавление, количество чатов: {len(chat_entities)}</b>")
 
@@ -223,7 +225,6 @@ async def start_subscribe(message: types.Message, state: FSMContext, chat_entiti
             else:
                 raise ex
         except Exception as ex:
-            print(type(ex))
             await error_handler(ex, message, chat_entity, is_last)
 
     return await cancel_add_chat(message, state, True)

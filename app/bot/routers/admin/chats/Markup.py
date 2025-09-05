@@ -230,7 +230,7 @@ class Markup:
         markup = InlineKeyboardBuilder()
 
         for chat in chats:
-            rating_text = f"{chat.rating}⭐" if chat.rating > 0 else "❌"
+            rating_text = f"{chat.rating} ⭐" if chat.rating > 0 else "❌"
             markup.row(
                 InlineKeyboardButton(
                     text=f"{rating_text} {chat.title}",

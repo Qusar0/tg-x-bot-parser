@@ -70,7 +70,7 @@ async def choose_rating_for_chat(cb: types.CallbackQuery, state: FSMContext):
         return
 
     await cb.answer()
-    current_rating = f"Текущий рейтинг: ⭐{chat.rating}" if chat.rating > 0 else "Текущий рейтинг: ❌ не оценён"
+    current_rating = f"Текущий рейтинг: {chat.rating} ⭐" if chat.rating > 0 else "Текущий рейтинг: ❌ не оценён"
 
     await cb.message.edit_text(
         f"<b>🏆 Оценка чата</b>\n\n"
@@ -93,11 +93,11 @@ async def handle_rating_selection(cb: types.CallbackQuery, callback_data: ChatRa
     if success:
         chat = await ChatRepo.get_by_telegram_id(chat_id)
 
-        await cb.answer(f"✅ Рейтинг установлен: {rating}", show_alert=True)
+        await cb.answer(f"✅ Рейтинг установлен: {rating} ⭐", show_alert=True)
         await cb.message.edit_text(
-            f"<b>⭐ Рейтинг успешно обновлён!</b>\n\n"
+            f"<b>✅ Рейтинг успешно обновлён!</b>\n\n"
             f"<b>Чат:</b> {chat.title}\n"
-            f"<b>Новый рейтинг:</b>✅ {rating}",
+            f"<b>Новый рейтинг:</b> {rating} ⭐",
             reply_markup=Markup.rating_chats_menu()
         )
     else:
