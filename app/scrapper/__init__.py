@@ -85,6 +85,10 @@ class Scrapper:
 
         for card in cards:
             text = card.select_one(".post-text").decode_contents(formatter="html")
+            img = card.select_one(".post-img-img")
+            carousel = card.select(".carousel-item .post-img-img")
+            imgs = [img.get("src") for img in carousel if img.get("src")]
+
             id = card.select_one('[data-original-title="Постоянная ссылка на публикацию"]').get("data-src")
 
             if id in FETCHED_CARDS:
@@ -100,7 +104,13 @@ class Scrapper:
                 logger.info(f"Сообщение дубликат: {id}")
                 return
 
-            asyncio.create_task(queue.call((BotManager.send_message, chat_id, preprocess_text(text))))
+            if carousel:
+                asyncio.create_task(queue.call((BotManager.send_media_group, chat_id, imgs, preprocess_text(text))))
+            elif img:
+                img = img.get("src")
+                asyncio.create_task(queue.call((BotManager.send_photo, chat_id, img, preprocess_text(text))))
+            else:
+                asyncio.create_task(queue.call((BotManager.send_message, chat_id, preprocess_text(text))))
 
     def load_search_page(self):
         """Грузим поисковую страницу"""
