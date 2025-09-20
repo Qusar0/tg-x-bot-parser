@@ -68,13 +68,13 @@ class Scrapper:
                     logger.error(f'Ошибка при обработке записей {ex}')
                     continue
                 finally:
-                    await self.parse_posts(keyword.central_chat_id, stopwords)
+                    await self.parse_posts(keyword.central_chat_id, stopwords, keyword)
                     await asyncio.sleep(10)
         except Exception as ex:
             logger.error(ex)
             traceback.print_exc()
 
-    async def parse_posts(self, chat_id: int, stopwords: list[Word]):
+    async def parse_posts(self, chat_id: int, stopwords: list[Word], keyword: Word):
         FETCHED_CARDS = await get_fetched_post_ids()
 
         logger.info("Парсим и анализируем посты")
@@ -85,9 +85,9 @@ class Scrapper:
 
         for card in cards:
             text = card.select_one(".post-text").decode_contents(formatter="html")
-            img = card.select_one(".post-img-img")
-            carousel = card.select(".carousel-item .post-img-img")
-            imgs = [img.get("src") for img in carousel if img.get("src")]
+            single_img = card.select_one(".post-img-img")
+            carousel_img = card.select(".carousel-item .post-img-img")
+            imgs = [img.get("src") for img in carousel_img if img.get("src")]
 
             id = card.select_one('[data-original-title="Постоянная ссылка на публикацию"]').get("data-src")
 
@@ -104,13 +104,15 @@ class Scrapper:
                 logger.info(f"Сообщение дубликат: {id}")
                 return
 
-            if carousel:
-                asyncio.create_task(queue.call((BotManager.send_media_group, chat_id, imgs, preprocess_text(text))))
-            elif img:
-                img = img.get("src")
-                asyncio.create_task(queue.call((BotManager.send_photo, chat_id, img, preprocess_text(text))))
+            processed_text = preprocess_text(text, keyword)
+
+            if carousel_img:
+                asyncio.create_task(queue.call((BotManager.send_media_group, chat_id, imgs, processed_text)))
+            elif single_img:
+                single_img = single_img.get("src")
+                asyncio.create_task(queue.call((BotManager.send_photo, chat_id, single_img, processed_text)))
             else:
-                asyncio.create_task(queue.call((BotManager.send_message, chat_id, preprocess_text(text))))
+                asyncio.create_task(queue.call((BotManager.send_message, chat_id, processed_text)))
 
     def load_search_page(self):
         """Грузим поисковую страницу"""
