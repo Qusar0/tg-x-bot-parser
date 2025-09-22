@@ -4,14 +4,14 @@ from loguru import logger
 from typing import List, Union
 from aiogram import types
 from aiogram.fsm.context import FSMContext
-from pyrogram.errors import FloodWait, UserNotParticipant
+from pyrogram.errors import FloodWait, UserNotParticipant, UsernameNotOccupied, UsernameInvalid
 
 from app.bot.routers.admin.chats.Markup import Markup
 from app.userbot.userbot_manager import userbot_manager
 
 from app.database.repo.Chat import ChatRepo
 
-from app.bot.routers.admin.chats.error_handlers import error_flood_wait_handler, error_handler, chat_not_exists_handler
+from app.bot.routers.admin.chats.error_handlers import error_flood_wait_handler, error_handler, chat_not_exists_handler, error_username_not_occupied_handler
 from app.bot.routers.admin.chats.errors import ChatNotExistError
 from app.config import config
 
@@ -92,6 +92,16 @@ async def leave_chat(chat_entity: Union[str, int]) -> bool:
         await ChatRepo.delete(candidate.telegram_id)
         global_state.deleted_usernames.append(chat_entity)
         return True
+    except UsernameNotOccupied:
+        logger.warning(f"Username не занят: {chat_entity}")
+        await ChatRepo.delete(candidate.telegram_id)
+        global_state.deleted_usernames.append(chat_entity)
+        return True
+    except UsernameInvalid:
+        logger.warning(f"Username невалидный: {chat_entity}")
+        await ChatRepo.delete(candidate.telegram_id)
+        global_state.deleted_usernames.append(chat_entity)
+        return True
     except Exception as ex:
         global_state.deleted_error_usernames.append(chat_entity)
         raise ex
@@ -110,6 +120,8 @@ async def start_delete_chat(message: types.Message, state: FSMContext, chat_enti
             await chat_not_exists_handler(message, chat_entity, is_last)
         except FloodWait as ex:
             await error_flood_wait_handler(ex, message, chat_entity, is_last)
+        except (UsernameNotOccupied, UsernameInvalid):
+            await error_username_not_occupied_handler(message, chat_entity, is_last)
         except Exception as ex:
             await error_handler(ex, message, chat_entity, is_last)
 
