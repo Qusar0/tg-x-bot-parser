@@ -50,7 +50,13 @@ class BotManager:
             await bot.send_message(chat_id, text, reply_markup=reply_markup)
 
     @staticmethod
-    async def send_media_group_from_userbot(chat_id: int, userbot_client, source_chat_id: int, media_group_id: str, text: str, reply_markup=None):
+    async def send_media_group_from_userbot(chat_id: int,
+                                            userbot_client,
+                                            source_chat_id: int,
+                                            media_group_id: str,
+                                            text: str,
+                                            reply_markup=None
+                                            ):
         """Отправка группы медиа из userbot в бот"""
         try:
             messages = []

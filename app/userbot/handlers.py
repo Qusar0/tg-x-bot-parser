@@ -41,9 +41,15 @@ class Handlers:
             for keyword in keywords:
                 if keyword.central_chat_id == central_chat:
                     processed_text = preprocess_text(text.html, keyword)
-                    
+
                     if message.media_group_id:
-                        await BotManager.send_media_group_from_userbot(central_chat, client, message.chat.id, str(message.media_group_id), processed_text)
+                        await BotManager.send_media_group_from_userbot(
+                            central_chat,
+                            client,
+                            message.chat.id,
+                            str(message.media_group_id),
+                            processed_text
+                        )
                     elif message.photo:
                         await BotManager.send_photo_from_userbot(central_chat, client, message, processed_text)
                     else:
