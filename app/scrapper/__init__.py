@@ -16,7 +16,7 @@ from app.enums import WordType
 from app.settings import settings
 from app.bot.Manager import BotManager
 from app.database.models.Word import Word
-from app.helpers import preprocess_text, is_word_match, is_duplicate, get_fetched_post_ids
+from app.helpers import preprocess_text, is_word_match, is_duplicate, get_fetched_post_ids, add_source_link
 from app.queue import queue
 
 with open("cookies.txt") as file:
@@ -88,6 +88,7 @@ class Scrapper:
             single_img = card.select_one(".post-img-img")
             carousel_img = card.select(".carousel-item .post-img-img")
             imgs = [img.get("src") for img in carousel_img if img.get("src")]
+            card_header = card.select_one(".post-header .media-body a")
 
             id = card.select_one('[data-original-title="Постоянная ссылка на публикацию"]').get("data-src")
 
@@ -105,6 +106,7 @@ class Scrapper:
                 return
 
             processed_text = preprocess_text(text, keyword)
+            processed_text = add_source_link(processed_text, card_header)
 
             if carousel_img:
                 asyncio.create_task(queue.call((BotManager.send_media_group, chat_id, imgs, processed_text)))

@@ -3,17 +3,11 @@ import aiohttp
 import bleach
 import html
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 from app.database.models.Word import Word
 from app.database.redis import redis_store
 
 POST_KEY = "post:{id}"
-
-DOMAINS = {
-    "t.me", "telegram.org",
-    "vk.com", "instagram.com",
-    "x.com", "facebook.com",
-    "youtube.com", "tiktok.com",
-}
 
 
 async def is_duplicate(id: str, original_text: str) -> bool:
@@ -51,13 +45,49 @@ async def check_valid_photo(session: aiohttp.ClientSession, photo: str):
             return False
 
 
-def remove_social_links(text: str):
+def is_url(string: str):
+    url_pattern = re.compile(
+        r'^(https?://)?'
+        r'([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}'
+        r'(:[0-9]{1,5})?'
+        r'(/\S*)?$'
+    )
+
+    return bool(url_pattern.match(string.strip()))
+
+
+def is_at(string: str):
+    return True if string.startswith("@") else False
+
+
+def add_source_link(text: str, header: Tag):
+    soup = BeautifulSoup(text, 'html.parser')
+    channel_name = header.get_text().strip()
+    link = header.get("href")
+
+    if '@' in link:
+        link = link.split("@")[-1]
+        link.rstrip('/')
+        link = f"https://t.me/{link}"
+
+    source_link = soup.new_tag('a', href=link)
+    source_link.string = f"🔗 Источник: {channel_name}"
+
+    soup.append("\n\n")
+    soup.append(source_link)
+
+    return str(soup)
+
+
+def remove_links(text: str):
     soup = BeautifulSoup(text, "html.parser")
 
     for a_tag in soup.find_all("a"):
-        href = a_tag.get("href")
-        if any(domain in href for domain in DOMAINS):
+        link_text = a_tag.get_text()
+        if is_url(link_text) or is_at(link_text):
             a_tag.decompose()
+        else:
+            a_tag.unwrap()
 
     return str(soup)
 
@@ -95,6 +125,6 @@ def preprocess_text(
         strip=True,
     )
 
-    text = remove_keywords(remove_social_links(text), keyword)
+    text = remove_keywords(remove_links(text), keyword)
 
     return text
