@@ -106,7 +106,7 @@ def load_config():
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Управление режимом работы приложения")
     parser.add_argument("--mode", choices=["dev", "prod"], required=True, help="Режим работы приложения")
-    parser.add_argument("--client", choices=["bot", "scrapper"], required=True, help="Тип клиента для запуска")
+    parser.add_argument("--client", choices=["bot", "scrapper", "xscrapper"], required=True, help="Тип клиента для запуска")
     args = parser.parse_args()
     os.environ["APP_MODE"] = args.mode
     os.environ["APP_CLIENT"] = args.client
