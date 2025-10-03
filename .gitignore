@@ -111,6 +111,7 @@ env.bak/
 venv.bak/
 config.prod.ini
 cookies.txt
+x_cookies.txt
 
 # Spyder project settings
 .spyderproject
