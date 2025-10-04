@@ -25,3 +25,8 @@ async def words_menu(cb: types.CallbackQuery, callback_data: WordMenuCb, state: 
             "<b>🛑 Перешли в меню стоп-слов</b>",
             reply_markup=Markup.open_menu(WordType.stopword),
         )
+    elif word_type == WordType.filter_word:
+        await cb.message.edit_text(
+            "<b>🔍 Перешли в меню фильтр-слов</b>",
+            reply_markup=Markup.open_menu(WordType.filter_word),
+        )

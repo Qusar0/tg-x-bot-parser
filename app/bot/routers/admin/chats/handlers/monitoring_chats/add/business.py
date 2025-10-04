@@ -178,7 +178,8 @@ async def start_subscribe(  # noqa: C901
     chats_data: list[dict] = None,
 ):
     chats_data = chats_data or []
-    chat_entities = [chat['link'] for chat in chats_data]
+    if chat_entities is None:
+        chat_entities = [chat['link'] for chat in chats_data]
     chats_ratings = {chat['link']: chat['rating'] for chat in chats_data}
 
     await message.answer(f"⏳ <b>Начинаю добавление, количество чатов: {len(chat_entities)}</b>")

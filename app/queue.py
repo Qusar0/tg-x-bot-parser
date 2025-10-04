@@ -19,6 +19,7 @@ class MessageQueue:
                 if (now - self._last_time_sent) >= self._delay:
                     message = self._queue.pop(0)
                     method, *args = message
+                    print(f"QUEUE: Выполняем {method.__name__} с аргументами {args}")
                     await method(*args)
                     self._last_time_sent = now
                 else:

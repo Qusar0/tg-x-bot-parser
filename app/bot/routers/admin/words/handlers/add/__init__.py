@@ -24,7 +24,12 @@ async def add_word_handler(cb: types.CallbackQuery, callback_data: WordMenuAddCb
         await cb.answer("⚠️ Пожалуйста, сначала добавьте чаты для переотправки", show_alert=True)
         return
 
-    word_type_name = "ключевых слов" if word_type == WordType.keyword else "стоп-слов"
+    if word_type == WordType.keyword:
+        word_type_name = "ключевых слов"
+    elif word_type == WordType.stopword:
+        word_type_name = "стоп-слов"
+    elif word_type == WordType.filter_word:
+        word_type_name = "фильтр-слов"
 
     await cb.message.edit_text(
         f"📝 <b>Добавление {word_type_name}</b>\n\n"
@@ -49,6 +54,10 @@ async def manual_add_handler(cb: types.CallbackQuery, callback_data: WordManualA
         await cb.message.edit_text(
             "💬 В какой чат добавить стоп-слова ?", reply_markup=Markup.choose_central_chat(word_type)
         )
+    elif word_type == WordType.filter_word:
+        await cb.message.edit_text(
+            "💬 В какой чат добавить фильтр-слова ?", reply_markup=Markup.choose_central_chat(word_type)
+        )
     await cb.answer()
 
 
@@ -65,6 +74,11 @@ async def choose_central_chat(cb: types.CallbackQuery, callback_data: ChooseCent
     elif word_type == WordType.stopword:
         await cb.message.edit_text(
             "🛑 Пожалуйста, отправьте стоп-слова для добавления:",
+            reply_markup=Markup.back_menu(word_type),
+        )
+    elif word_type == WordType.filter_word:
+        await cb.message.edit_text(
+            "🔍 Пожалуйста, отправьте фильтр-слова для добавления:",
             reply_markup=Markup.back_menu(word_type),
         )
 
@@ -84,6 +98,8 @@ async def add_word_scene(message: types.Message, state: FSMContext):
     if word_type == WordType.stopword:
         added_words = await WordRepo.add_many(words, word_type, central_chat_id)
     elif word_type == WordType.keyword:
+        added_words = await WordRepo.add_many(words, word_type, central_chat_id)
+    elif word_type == WordType.filter_word:
         added_words = await WordRepo.add_many(words, word_type, central_chat_id)
 
     await message.answer(
