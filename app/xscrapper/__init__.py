@@ -226,7 +226,7 @@ class XScrapper:
                 sleep_sec = random.randint(sleep_sec, sleep_sec + 60)
                 logger.info(f"Спим: {sleep_sec} сек.")
                 await self.page.wait_for_timeout(
-                    29999000
+                    sleep_sec*1000
                 )  # пауза 2 секунды (в миллисекундах)
 
         finally:
