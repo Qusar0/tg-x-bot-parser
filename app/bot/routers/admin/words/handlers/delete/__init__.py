@@ -15,7 +15,12 @@ from app.bot.utils.plural import plural_value
 async def delete_words(cb: types.CallbackQuery, callback_data: WordMenuDeleteCb, state: FSMContext):
     word_type = callback_data.word_type
 
-    title_words = "Ключ-слова" if word_type == WordType.keyword else "Стоп-слова"
+    if word_type == WordType.keyword:
+        title_words = "Ключ-слова"
+    elif word_type == WordType.stopword:
+        title_words = "Стоп-слова"
+    elif word_type == WordType.filter_word:
+        title_words = "Фильтр-слова"
     words = await WordRepo.get_all(word_type)
     if not words:
         await cb.answer(f"🤷‍♂️ {title_words} еще не добавлены", show_alert=True)
@@ -32,6 +37,11 @@ async def delete_words(cb: types.CallbackQuery, callback_data: WordMenuDeleteCb,
     elif word_type == WordType.stopword:
         await cb.message.edit_text(
             "🗑 Пожалуйста, отправьте стоп-слова, которые нужно удалить:",
+            reply_markup=Markup.delete_all_words(word_type),
+        )
+    elif word_type == WordType.filter_word:
+        await cb.message.edit_text(
+            "🗑 Пожалуйста, отправьте фильтр-слова, которые нужно удалить:",
             reply_markup=Markup.delete_all_words(word_type),
         )
 
@@ -60,6 +70,8 @@ async def delete_words_scene(message: types.Message, state: FSMContext):
     if word_type == WordType.keyword:
         deleted_words = await WordRepo.delete_many(words, word_type)
     elif word_type == WordType.stopword:
+        deleted_words = await WordRepo.delete_many(words, word_type)
+    elif word_type == WordType.filter_word:
         deleted_words = await WordRepo.delete_many(words, word_type)
 
     await message.answer(

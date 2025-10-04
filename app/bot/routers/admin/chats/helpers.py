@@ -6,18 +6,33 @@ VALID_USERNAME_RE = re.compile("^[a-z](?:(?!__)\\w){1,30}[a-z\\d]$", re.IGNORECA
 
 def extract_chat_entities(text: str) -> list[str]:
     usernames = set()
-    for username in text.split("\n"):
-        username = username.strip()
-        match = USERNAME_RE.match(username)
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+
+        match = USERNAME_RE.match(line)
         if match:
-            matched_username = username[match.end():]
+            matched_username = line[match.end():]
             is_invite = bool(match.group(1))
             if is_invite:
-                usernames.add(username)
+                usernames.add(line)
             else:
                 username = matched_username.rstrip("/")
-
-    if VALID_USERNAME_RE.match(username):
-        usernames.add("@" + username.lower())
+                if VALID_USERNAME_RE.match(username):
+                    usernames.add("@" + username.lower())
+        else:
+            if line.startswith("@"):
+                username = line[1:].rstrip("/")
+                if VALID_USERNAME_RE.match(username):
+                    usernames.add("@" + username.lower())
+            elif line.startswith("https://t.me/") or line.startswith("http://t.me/"):
+                username = line.split("/")[-1].rstrip("/")
+                if VALID_USERNAME_RE.match(username):
+                    usernames.add("@" + username.lower())
+            elif line.startswith("t.me/"):
+                username = line.split("/")[-1].rstrip("/")
+                if VALID_USERNAME_RE.match(username):
+                    usernames.add("@" + username.lower())
 
     return list(usernames)

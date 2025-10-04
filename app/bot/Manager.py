@@ -13,9 +13,11 @@ class BotManager:
     @staticmethod
     async def send_message(chat_id: int, text: str, reply_markup=None):
         try:
+            logger.info(f"Отправляем сообщение в чат {chat_id}")
             await bot.send_message(chat_id, text, reply_markup=reply_markup)
+            logger.success(f"Сообщение успешно отправлено в чат {chat_id}")
         except Exception as ex:
-            logger.error(ex)
+            logger.error(f"Ошибка отправки в чат {chat_id}: {ex}")
 
     @staticmethod
     async def send_photo(chat_id: int, photo: str, text: str, reply_markup=None):
@@ -63,7 +65,7 @@ class BotManager:
             async for msg in userbot_client.get_chat_history(source_chat_id, limit=10):
                 if hasattr(msg, 'media_group_id') and str(msg.media_group_id) == media_group_id:
                     messages.append(msg)
-                if len(messages) >= 10:  # Ограничиваем количество
+                if len(messages) >= 10:
                     break
 
             if not messages:
