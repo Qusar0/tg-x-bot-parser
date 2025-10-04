@@ -45,6 +45,8 @@ class Markup:
             text = "❌ Удалить все стоп-слова"
         elif word_type == WordType.keyword:
             text = "❌ Удалить все ключ-слова"
+        elif word_type == WordType.filter_word:
+            text = "❌ Удалить все фильтр-слова"
 
         markup.row(
             InlineKeyboardButton(
@@ -108,6 +110,28 @@ class Markup:
                 InlineKeyboardButton(
                     text="📗 Список стоп-слов Excel",
                     callback_data=WordUploadingCb(word_type=WordType.stopword).pack()
+                )
+            )
+        elif word_type == WordType.filter_word:
+            markup.row(
+                InlineKeyboardButton(
+                    text="➕ Фильтр-слова",
+                    callback_data=WordMenuAddCb(word_type=WordType.filter_word).pack(),
+                ),
+                InlineKeyboardButton(
+                    text="➖ Фильтр-слова",
+                    callback_data=WordMenuDeleteCb(word_type=WordType.filter_word).pack(),
+                ),
+            )
+            markup.row(
+                InlineKeyboardButton(
+                    text="👁️ Список фильтр-слов",
+                    callback_data=WordShowCb(word_type=word_type).pack())
+            )
+            markup.row(
+                InlineKeyboardButton(
+                    text="📗 Список фильтр-слов Excel",
+                    callback_data=WordUploadingCb(word_type=WordType.filter_word).pack()
                 )
             )
 

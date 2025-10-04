@@ -14,7 +14,12 @@ async def show_words(cb: types.CallbackQuery, callback_data: WordShowCb, state: 
     word_type = callback_data.word_type
 
     words = await WordRepo.get_all(word_type)
-    title_words = "Ключ-слова" if word_type == WordType.keyword else "Стоп-слова"
+    if word_type == WordType.keyword:
+        title_words = "Ключ-слова"
+    elif word_type == WordType.stopword:
+        title_words = "Стоп-слова"
+    elif word_type == WordType.filter_word:
+        title_words = "Фильтр-слова"
 
     if not words:
         await cb.answer(f"🤷‍♂️ {title_words} еще не добавлены", show_alert=True)

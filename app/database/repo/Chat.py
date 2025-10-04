@@ -49,3 +49,9 @@ class ChatRepo:
             await chat.save()
             return True
         return False
+
+    @staticmethod
+    async def get_by_title(title: str) -> Chat | None:
+        """Поиск канала по названию (без учета регистра)"""
+        chat = await Chat.filter(title__icontains=title).first()
+        return chat
