@@ -111,6 +111,18 @@ async def add_source_link(text: str, header: Tag):
     return str(soup)
 
 
+async def add_x_link(text: str, link: str):
+    soup = BeautifulSoup(text, 'html.parser')
+    account_name = link.split('/')[1]
+    link = f"https://x.com/{link}"
+    source_link = soup.new_tag('a', href=link)
+    source_link.string = f"🔗 Источник: {account_name}"
+    soup.append("\n\n")
+    soup.append(source_link)
+
+    return str(soup)
+
+
 async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, chat_id: int = None):
     """
     Добавляет источник к тексту для юзербота.

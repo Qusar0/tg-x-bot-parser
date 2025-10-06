@@ -21,6 +21,7 @@ from app.helpers import (
     is_word_match,
     is_duplicate,
     get_fetched_post_ids,
+    add_x_link,
 )
 from app.queue import queue
 
@@ -40,6 +41,8 @@ class XScrapper:
         self.is_load_cookie = False
 
     async def _load_driver(self):
+        # Если возникла ошибка с child_watcher в playwright - раскомментировать строку
+        # asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
         self.p = await async_playwright().start()
         self.browser = await self.p.chromium.launch(
             headless=False,
@@ -141,11 +144,11 @@ class XScrapper:
                 # Парс идентификатора
                 a_tag = card.find("a", href=lambda x: x and "/status/" in x)
                 if a_tag:
-                    id = a_tag.get("href").split("/")[-1]
+                    link = a_tag.get("href")
+                    id = link.split("/")[-1]
 
                 if id in FETCHED_CARDS:
                     continue
-                print(id)
                 FETCHED_CARDS.append(id)
 
                 if is_word_match(tweet_div, stopwords):
@@ -156,8 +159,8 @@ class XScrapper:
                     logger.info(f"Сообщение дубликат: {id}")
                     return
 
-                processed_text = preprocess_text(tweet_div, keyword)
-                print(processed_text)
+                processed_text = await preprocess_text(tweet_div, keyword)
+                processed_text = await add_x_link(processed_text, link)
                 if len(imgs) > 1:
                     asyncio.create_task(
                         queue.call(
@@ -166,9 +169,7 @@ class XScrapper:
                     )
                 elif len(imgs) == 1:
                     asyncio.create_task(
-                        queue.call(
-                            (BotManager.send_photo, chat_id, img[0], processed_text)
-                        )
+                        queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
                     )
                 else:
                     asyncio.create_task(
@@ -192,7 +193,7 @@ class XScrapper:
         self.page = await self.context.new_page()
         if not self.is_load_cookie:
             await self._load_cookie()
-        await self.page.goto(self.SEARCH_URL)
+        await self.page.goto(self.SEARCH_URL, timeout=40000)
 
         time.sleep(4)
 
