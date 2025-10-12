@@ -110,6 +110,9 @@ class XScrapper:
             soup = BeautifulSoup(html_content, "lxml")
 
             cards = soup.select("article[data-testid='tweet']")
+            if all(item in FETCHED_CARDS for item in cards):
+                logger.info("Закончились посты по этому ключ-слову")
+                break
             for card in cards:
                 time_tag = card.find("time")
                 if time_tag:
@@ -125,6 +128,7 @@ class XScrapper:
                         # Точка выхода, если возраст поста > 24h
                         exit_loop = True
                         break
+                
                 # Парс текста
                 tweet_div = card.find("div", {"data-testid": "tweetText"})
 
