@@ -9,6 +9,8 @@ class Chat(Model):
 
     rating = fields.IntField(default=0)
 
+    is_central = fields.BooleanField(default=False)
+
     messages_count = fields.IntField(default=0)
 
     created_at = fields.DatetimeField(auto_now_add=True)

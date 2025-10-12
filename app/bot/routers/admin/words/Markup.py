@@ -1,7 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from app.enums import WordType
-from app.settings import settings
+from app.database.repo.Chat import ChatRepo
 from app.bot.callback_data import (
     back_menu_cb,
     ChooseCentralChatForWordCb,
@@ -22,14 +22,14 @@ class Markup:
         return markup.as_markup()
 
     @staticmethod
-    def choose_central_chat(word_type: WordType) -> InlineKeyboardMarkup:
+    async def choose_central_chat(word_type: WordType) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
-        for chat in settings.get_central_chats():
+        for chat in await ChatRepo.get_central_chats():
             markup.row(
                 InlineKeyboardButton(
                     text=chat.title,
-                    callback_data=ChooseCentralChatForWordCb(word_type=word_type, chat_id=chat.chat_id).pack(),
+                    callback_data=ChooseCentralChatForWordCb(word_type=word_type, chat_id=chat.telegram_id).pack(),
                 )
             )
 
@@ -140,15 +140,15 @@ class Markup:
         return markup.as_markup()
 
     @staticmethod
-    def choose_central_chat_for_excel(word_type: WordType) -> InlineKeyboardMarkup:
+    async def choose_central_chat_for_excel(word_type: WordType) -> InlineKeyboardMarkup:
         from app.bot.callback_data import ChooseChatForExcelCb
         markup = InlineKeyboardBuilder()
 
-        for chat in settings.get_central_chats():
+        for chat in await ChatRepo.get_central_chats():
             markup.row(
                 InlineKeyboardButton(
                     text=chat.title,
-                    callback_data=ChooseChatForExcelCb(word_type=word_type, chat_id=chat.chat_id).pack(),
+                    callback_data=ChooseChatForExcelCb(word_type=word_type, chat_id=chat.telegram_id).pack(),
                 )
             )
 

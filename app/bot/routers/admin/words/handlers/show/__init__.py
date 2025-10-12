@@ -25,7 +25,7 @@ async def show_words(cb: types.CallbackQuery, callback_data: WordShowCb, state: 
         await cb.answer(f"🤷‍♂️ {title_words} еще не добавлены", show_alert=True)
         return
 
-    raw_template, html_template = get_words_template(words, word_type)
+    raw_template, html_template = await get_words_template(words, word_type)
 
     await cb.answer()
 

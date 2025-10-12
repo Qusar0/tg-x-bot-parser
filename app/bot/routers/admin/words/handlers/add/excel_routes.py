@@ -19,7 +19,7 @@ async def excel_upload_handler(cb: types.CallbackQuery, callback_data: WordExcel
     await cb.message.edit_text(
         f"📗 <b>Загрузка {word_type_name} из Excel</b>\n\n"
         f"💬 В какой чат добавить {word_type_name}?",
-        reply_markup=Markup.choose_central_chat_for_excel(callback_data.word_type)
+        reply_markup=await Markup.choose_central_chat_for_excel(callback_data.word_type)
     )
     await cb.answer()
 

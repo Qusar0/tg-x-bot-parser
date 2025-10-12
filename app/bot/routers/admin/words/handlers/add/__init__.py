@@ -8,7 +8,7 @@ from app.database.repo.Word import WordRepo
 from app.enums import WordType
 from app.bot.utils.plural import plural_value, PluralType
 from app.bot.callback_data import ChooseCentralChatForWordCb, WordMenuAddCb, WordManualAddCb
-from app.settings import settings
+from app.database.repo.Chat import ChatRepo
 from app.bot.routers.admin.words.handlers.add import excel_routes  # noqa
 
 
@@ -19,7 +19,7 @@ async def add_word_handler(cb: types.CallbackQuery, callback_data: WordMenuAddCb
     await state.update_data(word_type=word_type)
     await state.set_state(WordState.add_word)
 
-    central_chats = settings.get_central_chats()
+    central_chats = await ChatRepo.get_central_chats()
     if not central_chats:
         await cb.answer("⚠️ Пожалуйста, сначала добавьте чаты для переотправки", show_alert=True)
         return
@@ -48,15 +48,15 @@ async def manual_add_handler(cb: types.CallbackQuery, callback_data: WordManualA
 
     if word_type == WordType.keyword:
         await cb.message.edit_text(
-            "💬 В какой чат добавить ключ-слова ?", reply_markup=Markup.choose_central_chat(word_type)
+            "💬 В какой чат добавить ключ-слова ?", reply_markup=await Markup.choose_central_chat(word_type)
         )
     elif word_type == WordType.stopword:
         await cb.message.edit_text(
-            "💬 В какой чат добавить стоп-слова ?", reply_markup=Markup.choose_central_chat(word_type)
+            "💬 В какой чат добавить стоп-слова ?", reply_markup=await Markup.choose_central_chat(word_type)
         )
     elif word_type == WordType.filter_word:
         await cb.message.edit_text(
-            "💬 В какой чат добавить фильтр-слова ?", reply_markup=Markup.choose_central_chat(word_type)
+            "💬 В какой чат добавить фильтр-слова ?", reply_markup=await Markup.choose_central_chat(word_type)
         )
     await cb.answer()
 
@@ -93,7 +93,8 @@ async def add_word_scene(message: types.Message, state: FSMContext):
     words = extract_words(message.text)
     response_template = "<b>{added_words} добавлено в чат: {chat_title} ✅</b>\n<u>Вернитесь назад или добавьте еще:</u>"
 
-    central_chat = next(filter(lambda chat: chat.chat_id == central_chat_id, settings.get_central_chats()))
+    from app.database.repo.Chat import ChatRepo
+    central_chat = await ChatRepo.get_by_telegram_id(central_chat_id)
 
     if word_type == WordType.stopword:
         added_words = await WordRepo.add_many(words, word_type, central_chat_id)

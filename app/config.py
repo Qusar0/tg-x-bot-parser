@@ -117,5 +117,6 @@ def parse_arguments() -> argparse.Namespace:
     return args
 
 
-parse_arguments()
+if not (os.environ.get("APP_MODE") and os.environ.get("APP_CLIENT")):
+    parse_arguments()
 config = load_config()
