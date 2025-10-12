@@ -47,11 +47,11 @@ class XScrapper:
         self.browser = await self.p.chromium.launch(
             headless=False,
             # executable_path=r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-            # proxy={
-            #     "server": "http://130.254.41.43:6663",
-            #     "username": "user239081",
-            #     "password": "6iogl9"
-            # }
+            proxy={
+                "server": "http://130.254.41.43:6663",
+                "username": "user239081",
+                "password": "6iogl9"
+            }
         )
         self.context = await self.browser.new_context()
 
@@ -140,6 +140,7 @@ class XScrapper:
                     img = div.find("img")
                     if img and img.get("src"):
                         imgs.append(img["src"])
+                logger.info(f"{imgs}")
 
                 # Парс идентификатора
                 a_tag = card.find("a", href=lambda x: x and "/status/" in x)
@@ -157,7 +158,7 @@ class XScrapper:
 
                 if await is_duplicate(id, tweet_div):
                     logger.info(f"Сообщение дубликат: {id}")
-                    return
+                    continue
 
                 processed_text = await preprocess_text(tweet_div, keyword)
                 processed_text = await add_x_link(processed_text, link)
