@@ -31,8 +31,6 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
-    networks:
-      - tg-x-bot-network
     command: python -m app --mode=dev --client=bot
 
   # TG Scrapper сервис
@@ -51,8 +49,6 @@ services:
       - redis
       - bot
     restart: unless-stopped
-    networks:
-      - tg-x-bot-network
     command: python -m app --mode=dev --client=scrapper
 
   # X Scrapper сервис
@@ -72,14 +68,8 @@ services:
       - redis
       - bot
     restart: unless-stopped
-    networks:
-      - tg-x-bot-network
     command: python -m app --mode=dev --client=xscrapper
 
 
 volumes:
   redis_data:
-
-networks:
-  tg-x-bot-network:
-    driver: bridge
