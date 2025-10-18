@@ -2,6 +2,7 @@ import asyncio
 import json
 import traceback
 import random
+import os
 from loguru import logger
 from bs4 import BeautifulSoup
 from webdriver_manager.chrome import ChromeDriverManager
@@ -32,11 +33,31 @@ class Scrapper:
         self.is_load_cookie = False
 
     def _load_driver(self):
-        # options = uc.ChromeOptions()
+        options = uc.ChromeOptions()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--window-size=1920,1080')
+        options.add_argument('--remote-debugging-port=9222')
+        
+        # В Docker используем webdriver-manager для автоматического подбора версии
+        try:
+            # Сначала пробуем системный ChromeDriver
+            if os.path.exists('/usr/local/bin/chromedriver'):
+                driver_path = '/usr/local/bin/chromedriver'
+            else:
+                # Если системный не работает, используем webdriver-manager
+                driver_path = ChromeDriverManager().install()
+        except Exception as e:
+            logger.warning(f"Ошибка с системным ChromeDriver: {e}")
+            # Fallback на webdriver-manager
+            driver_path = ChromeDriverManager().install()
+            
         self.driver = uc.Chrome(
             use_subprocess=False,
-            # options=options,
-            driver_executable_path=ChromeDriverManager().install(),
+            options=options,
+            driver_executable_path=driver_path,
         )
         self.wait = WebDriverWait(self.driver, 10)
 
