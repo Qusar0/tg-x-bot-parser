@@ -81,8 +81,8 @@ class XScrapper:
 
     async def fetch_url(self):
         try:
-            keywords = await WordRepo.get_all(WordType.keyword)
-            stopwords = await WordRepo.get_all(WordType.stopword)
+            keywords = await WordRepo.get_all(WordType.x_keyword)
+            stopwords = await WordRepo.get_all(WordType.x_stopword)
 
             for idx, keyword in enumerate(keywords, start=1):
                 try:
@@ -175,7 +175,7 @@ class XScrapper:
                     logger.info(f"Сообщение дубликат: {id}")
                     continue
 
-                processed_text = await preprocess_text(tweet_div, keyword)
+                processed_text = await preprocess_text(tweet_div, keyword, platform="x")
                 processed_text = await add_x_link(processed_text, link)
                 if len(imgs) > 1:
                     asyncio.create_task(

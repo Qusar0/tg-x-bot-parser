@@ -24,11 +24,11 @@ class Handlers:
             if not candidate:
                 return
 
-            keywords = await is_word_match(text, WordType.keyword)
+            keywords = await is_word_match(text, WordType.tg_keyword)
             if not keywords:
                 return
 
-            stopwords = await is_word_match(text, WordType.stopword)
+            stopwords = await is_word_match(text, WordType.tg_stopword)
             if stopwords:
                 return
 
@@ -46,7 +46,8 @@ class Handlers:
                             text.html,
                             keyword,
                             allowed_tags=["b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
-                            allowed_attrs={}
+                            allowed_attrs={},
+                            platform="tg"
                         )
 
                         processed_text = await add_userbot_source_link(

@@ -215,6 +215,7 @@ async def preprocess_text(
     keyword: Word,
     allowed_tags=["a", "b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
     allowed_attrs={"a": ["href"]},
+    platform: str = "tg",  # "tg" или "x"
 ) -> str:
     text = text.replace("<br/>", "\n").replace("<br>", "\n")
     text = text.replace("</p>", "\n").replace("<p>", "")
@@ -232,7 +233,13 @@ async def preprocess_text(
 
     from app.database.repo.Word import WordRepo
     from app.enums import WordType
-    filter_words = await WordRepo.get_all(WordType.filter_word)
+    
+    # Выбираем фильтр-слова в зависимости от платформы
+    if platform == "tg":
+        filter_words = await WordRepo.get_all(WordType.tg_filter_word)
+    else:  # x
+        filter_words = await WordRepo.get_all(WordType.x_filter_word)
+    
     for filter_word in filter_words:
         text = remove_keywords(text, filter_word)
 

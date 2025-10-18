@@ -6,6 +6,10 @@ filters_cb = "filters"
 back_menu_cb = "back-menu"
 delete_cb = "delete"
 
+# Парсеры
+tg_parser_cb = "tg-parser"
+x_parser_cb = "x-parser"
+
 # Чаты
 chats_cb = "chats"
 chats_monitorings_cb = "chats-monitorings"

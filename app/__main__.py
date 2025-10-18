@@ -7,7 +7,6 @@ from loguru import logger
 
 async def main():
 
-    from app.scrapper import scrapper
     from app.xscrapper import xscrapper
     from app.database.redis import redis_store
     from app.database.connection import init_connection, close_connection
@@ -16,9 +15,6 @@ async def main():
     await redis_store.connect()
 
     try:
-        if os.environ["APP_CLIENT"] == "scrapper":
-            await scrapper.start()
-
         if os.environ["APP_CLIENT"] == "xscrapper":
             await xscrapper.start()
 

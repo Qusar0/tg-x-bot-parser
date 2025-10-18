@@ -1,7 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from app.bot.callback_data import chats_cb, WordMenuCb
-from app.enums import WordType
+from app.bot.callback_data import chats_cb, tg_parser_cb, x_parser_cb
 
 
 class Markup:
@@ -10,11 +9,8 @@ class Markup:
         markup = InlineKeyboardBuilder()
 
         markup.row(
-            InlineKeyboardButton(text="🔑 Ключ-слова", callback_data=WordMenuCb(word_type=WordType.keyword).pack()),
-            InlineKeyboardButton(text="🛑 Стоп-слова", callback_data=WordMenuCb(word_type=WordType.stopword).pack()),
-        )
-        markup.row(
-            InlineKeyboardButton(text="🔍 Фильтр-слова", callback_data=WordMenuCb(word_type=WordType.filter_word).pack()),
+            InlineKeyboardButton(text="📱 Парсер Telegram", callback_data=tg_parser_cb),
+            InlineKeyboardButton(text="🐦 Парсер X (Twitter)", callback_data=x_parser_cb),
         )
 
         markup.row(

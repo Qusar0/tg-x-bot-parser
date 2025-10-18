@@ -15,18 +15,35 @@ async def words_menu(cb: types.CallbackQuery, callback_data: WordMenuCb, state: 
     await state.set_state(None)
     word_type = callback_data.word_type
 
-    if word_type == WordType.keyword:
+    # Telegram слова
+    if word_type == WordType.tg_keyword:
         await cb.message.edit_text(
-            get_keywords_menu_template(),
-            reply_markup=Markup.open_menu(WordType.keyword),
+            "<b>🔑 Ключ-слова для Telegram</b>",
+            reply_markup=Markup.open_menu(WordType.tg_keyword),
         )
-    elif word_type == WordType.stopword:
+    elif word_type == WordType.tg_stopword:
         await cb.message.edit_text(
-            "<b>🛑 Перешли в меню стоп-слов</b>",
-            reply_markup=Markup.open_menu(WordType.stopword),
+            "<b>🛑 Стоп-слова для Telegram</b>",
+            reply_markup=Markup.open_menu(WordType.tg_stopword),
         )
-    elif word_type == WordType.filter_word:
+    elif word_type == WordType.tg_filter_word:
         await cb.message.edit_text(
-            "<b>🔍 Перешли в меню фильтр-слов</b>",
-            reply_markup=Markup.open_menu(WordType.filter_word),
+            "<b>🔍 Фильтр-слова для Telegram</b>",
+            reply_markup=Markup.open_menu(WordType.tg_filter_word),
+        )
+    # X слова
+    elif word_type == WordType.x_keyword:
+        await cb.message.edit_text(
+            "<b>🔑 Ключ-слова для X</b>",
+            reply_markup=Markup.open_menu(WordType.x_keyword),
+        )
+    elif word_type == WordType.x_stopword:
+        await cb.message.edit_text(
+            "<b>🛑 Стоп-слова для X</b>",
+            reply_markup=Markup.open_menu(WordType.x_stopword),
+        )
+    elif word_type == WordType.x_filter_word:
+        await cb.message.edit_text(
+            "<b>🔍 Фильтр-слова для X</b>",
+            reply_markup=Markup.open_menu(WordType.x_filter_word),
         )

@@ -15,12 +15,19 @@ from app.bot.utils.plural import plural_value
 async def delete_words(cb: types.CallbackQuery, callback_data: WordMenuDeleteCb, state: FSMContext):
     word_type = callback_data.word_type
 
-    if word_type == WordType.keyword:
-        title_words = "Ключ-слова"
-    elif word_type == WordType.stopword:
-        title_words = "Стоп-слова"
-    elif word_type == WordType.filter_word:
-        title_words = "Фильтр-слова"
+    # Определяем название и платформу
+    is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+    is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+    is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+    
+    platform = "TG" if word_type.value.startswith("tg_") else "X"
+    
+    if is_keyword:
+        title_words = f"Ключ-слова {platform}"
+    elif is_stopword:
+        title_words = f"Стоп-слова {platform}"
+    elif is_filter_word:
+        title_words = f"Фильтр-слова {platform}"
     words = await WordRepo.get_all(word_type)
     if not words:
         await cb.answer(f"🤷‍♂️ {title_words} еще не добавлены", show_alert=True)
@@ -29,19 +36,19 @@ async def delete_words(cb: types.CallbackQuery, callback_data: WordMenuDeleteCb,
     await state.update_data(word_type=word_type)
     await state.set_state(WordState.delete_word)
 
-    if word_type == WordType.keyword:
+    if is_keyword:
         await cb.message.edit_text(
-            "🗑 Пожалуйста, отправьте ключ-слова, которые нужно удалить:",
+            f"🗑 Пожалуйста, отправьте ключ-слова {platform}, которые нужно удалить:",
             reply_markup=Markup.delete_all_words(word_type),
         )
-    elif word_type == WordType.stopword:
+    elif is_stopword:
         await cb.message.edit_text(
-            "🗑 Пожалуйста, отправьте стоп-слова, которые нужно удалить:",
+            f"🗑 Пожалуйста, отправьте стоп-слова {platform}, которые нужно удалить:",
             reply_markup=Markup.delete_all_words(word_type),
         )
-    elif word_type == WordType.filter_word:
+    elif is_filter_word:
         await cb.message.edit_text(
-            "🗑 Пожалуйста, отправьте фильтр-слова, которые нужно удалить:",
+            f"🗑 Пожалуйста, отправьте фильтр-слова {platform}, которые нужно удалить:",
             reply_markup=Markup.delete_all_words(word_type),
         )
 
@@ -67,12 +74,8 @@ async def delete_words_scene(message: types.Message, state: FSMContext):
     words = extract_words(message.text)
     response_template = "<b>{deleted_words} удалено ✔️</b>\n<u>Вернитесь назад или удалите еще:</u>"
 
-    if word_type == WordType.keyword:
-        deleted_words = await WordRepo.delete_many(words, word_type)
-    elif word_type == WordType.stopword:
-        deleted_words = await WordRepo.delete_many(words, word_type)
-    elif word_type == WordType.filter_word:
-        deleted_words = await WordRepo.delete_many(words, word_type)
+    # Удаляем слова для любого типа
+    deleted_words = await WordRepo.delete_many(words, word_type)
 
     await message.answer(
         response_template.format(deleted_words=plural_value(len(deleted_words), PluralType.word)),

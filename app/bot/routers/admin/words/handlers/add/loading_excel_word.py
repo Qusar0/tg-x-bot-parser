@@ -11,7 +11,19 @@ class ExcelWordParser:
 
         df = pd.read_excel(excel_file, engine='openpyxl')
 
-        column_name = 'Ключ-слова' if word_type == WordType.keyword else 'Стоп-слова'
+        # Определяем название столбца
+        is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+        is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+        is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+        
+        platform = "TG" if word_type.value.startswith("tg_") else "X"
+        
+        if is_keyword:
+            column_name = f'Ключ-слова {platform}'
+        elif is_stopword:
+            column_name = f'Стоп-слова {platform}'
+        elif is_filter_word:
+            column_name = f'Фильтр-слова {platform}'
 
         if column_name not in df.columns:
             raise ValueError(f"Столбец '{column_name}' не найден в Excel файле")
@@ -29,7 +41,19 @@ class ExcelWordParser:
 
     @staticmethod
     def create_template_excel(word_type: WordType) -> bytes:
-        column_name = 'Ключ-слова' if word_type == WordType.keyword else 'Стоп-слова'
+        # Определяем название столбца
+        is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+        is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+        is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+        
+        platform = "TG" if word_type.value.startswith("tg_") else "X"
+        
+        if is_keyword:
+            column_name = f'Ключ-слова {platform}'
+        elif is_stopword:
+            column_name = f'Стоп-слова {platform}'
+        elif is_filter_word:
+            column_name = f'Фильтр-слова {platform}'
 
         data = {
             column_name: [
