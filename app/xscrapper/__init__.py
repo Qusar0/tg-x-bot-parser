@@ -41,17 +41,28 @@ class XScrapper:
         self.is_load_cookie = False
 
     async def _load_driver(self):
-        # Если возникла ошибка с child_watcher в playwright - раскомментировать строку
-        # asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+        # Исправляем проблему с child_watcher в Docker
+        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
         self.p = await async_playwright().start()
+        
+        # Настройки для Docker
+        browser_args = [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--window-size=1920,1080'
+        ]
+        
+        # Используем системный Chrome
         self.browser = await self.p.chromium.launch(
-            headless=False,
-            # executable_path=r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-            proxy={
-                "server": "http://130.254.41.43:6663",
-                "username": "user239081",
-                "password": "6iogl9"
-            }
+            headless=True,
+            executable_path='/usr/bin/google-chrome',
+            args=browser_args,
+            # proxy={
+            #     "server": "http://130.254.41.43:6663",
+            #     "username": "user239081",
+            #     "password": "6iogl9"
+            # }
         )
         self.context = await self.browser.new_context()
 
