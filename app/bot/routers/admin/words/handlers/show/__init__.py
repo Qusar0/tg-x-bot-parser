@@ -16,9 +16,9 @@ async def show_words(cb: types.CallbackQuery, callback_data: WordShowCb, state: 
     words = await WordRepo.get_all(word_type)
     
     # Определяем название и платформу
-    is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
-    is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
-    is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+    is_keyword = word_type in [WordType.tg_keyword]
+    is_stopword = word_type in [WordType.tg_stopword]
+    is_filter_word = word_type in [WordType.tg_filter_word]
     
     platform = "TG" if word_type.value.startswith("tg_") else "X"
     

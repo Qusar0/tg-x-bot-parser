@@ -58,11 +58,11 @@ class XScrapper:
             headless=True,
             executable_path='/usr/bin/google-chrome',
             args=browser_args,
-            # proxy={
-            #     "server": "http://130.254.41.43:6663",
-            #     "username": "user239081",
-            #     "password": "6iogl9"
-            # }
+            proxy={
+                "server": "http://130.254.41.43:6663",
+                "username": "user239081",
+                "password": "6iogl9"
+            }
         )
         self.context = await self.browser.new_context()
 
@@ -83,6 +83,10 @@ class XScrapper:
         try:
             keywords = await WordRepo.get_all(WordType.x_keyword)
             stopwords = await WordRepo.get_all(WordType.x_stopword)
+            if not keywords:
+                logger.info("Ключевые слова отсутствуют.")
+                await asyncio.sleep(10)
+                return
 
             for idx, keyword in enumerate(keywords, start=1):
                 try:
@@ -92,19 +96,11 @@ class XScrapper:
                         await self.load_search_page()
 
                     await self.input_search_keywords(keyword.title, is_first_search)
-
                     await self.parse_posts(keyword.central_chat_id, stopwords, keyword)
-                    # self.load_more_posts()
 
-                # except ElementNotInteractableException:
-                #     logger.warning('На странице не найдено больше записей.')
-                #     continue
-                # except Exception as ex:
-                #     logger.error(f'Ошибка при обработке записей {ex}')
-                #     continue
                 finally:
-                    #
                     await asyncio.sleep(10)
+
         except Exception as ex:
             logger.error(ex)
             traceback.print_exc()
@@ -242,9 +238,11 @@ class XScrapper:
                 sleep_sec = settings.get_scrapper_page_sleep_sec()
                 sleep_sec = random.randint(sleep_sec, sleep_sec + 60)
                 logger.info(f"Спим: {sleep_sec} сек.")
-                await self.page.wait_for_timeout(
-                    sleep_sec*1000
-                )  # пауза 2 секунды (в миллисекундах)
+
+                if self.page is not None:
+                    await self.page.wait_for_timeout(sleep_sec * 1000)
+                else:
+                    await asyncio.sleep(15)
 
         finally:
             await self.browser.close()

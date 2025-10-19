@@ -13,7 +13,6 @@ RUN wget -q -O /usr/share/keyrings/google-linux-signing-key.gpg https://dl.googl
     apt-get update && apt-get install -y google-chrome-stable && \
     rm -rf /var/lib/apt/lists/*
 
-# 3️⃣ Chrome уже установлен, ChromeDriver не нужен для Playwright
 
 # 4️⃣ Python-зависимости
 WORKDIR /app
