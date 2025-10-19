@@ -20,9 +20,12 @@ class UserbotManager:
         )
 
     async def start(self):
+        logger.info("Запускаем userbot...")
         self.client.add_handler(MessageHandler(Handlers.message_handler, filters.incoming))
+        logger.info("Обработчик сообщений добавлен")
         await self.client.start()
         logger.success("Юзербот запущен!")
+        logger.info("Userbot готов к получению сообщений")
         await idle()
         await self.client.stop()
 

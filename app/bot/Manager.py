@@ -14,7 +14,7 @@ class BotManager:
     @staticmethod
     async def send_message(chat_id: int, text: str, reply_markup=None):
         try:
-            logger.info(f"Отправляем сообщение в чат {chat_id}")
+            logger.info(f"Отправляем сообщение в чат {chat_id}, текст: {text[:50]}...")
             await bot.send_message(chat_id, text, reply_markup=reply_markup)
             logger.success(f"Сообщение успешно отправлено в чат {chat_id}")
         except Exception as ex:
