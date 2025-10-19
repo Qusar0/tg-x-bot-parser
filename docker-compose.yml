@@ -37,26 +37,6 @@ services:
       - tg-x-bot-network
     command: python -m app --mode=dev --client=bot
 
-  # TG Scrapper сервис
-  tg-scrapper:
-    build: .
-    container_name: tg-x-bot-tg-scrapper
-    environment:
-      - DISPLAY=:99
-    volumes:
-      - ./config.dev.ini:/app/config.dev.ini:ro
-      - ./cookies.txt:/app/cookies.txt:ro
-      - ./database.db:/app/database.db
-      - ./settings.json:/app/settings.json
-      - ./logs:/app/logs
-    depends_on:
-      - redis
-      - bot
-    restart: unless-stopped
-    networks:
-      - tg-x-bot-network
-    command: python -m app --mode=dev --client=scrapper
-
   # X Scrapper сервис
   x-scrapper:
     build: .
