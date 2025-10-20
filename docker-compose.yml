@@ -24,7 +24,6 @@ services:
       - ./config.dev.ini:/app/config.dev.ini:ro
       - ./x_cookies.txt:/app/x_cookies.txt:ro
       - ./userbot_pyrogram.session:/app/userbot_pyrogram.session
-      - ./settings.json:/app/settings.json
       - ./logs:/app/logs
       - ./downloads:/app/downloads
     depends_on:

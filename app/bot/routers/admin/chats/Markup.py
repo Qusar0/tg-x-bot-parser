@@ -173,6 +173,9 @@ class Markup:
             InlineKeyboardButton(text='📗 Загрузить из Excel', callback_data=chats_add_excel_cb)
         )
         markup.row(
+            InlineKeyboardButton(text='📂 Выбрать из аккаунта', callback_data=chats_load_from_account)
+        )
+        markup.row(
             InlineKeyboardButton(text="🤚 Загрузить вручную", callback_data=chats_add_cb)
         )
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_monitorings_cb))

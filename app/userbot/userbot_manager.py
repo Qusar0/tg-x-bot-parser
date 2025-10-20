@@ -60,8 +60,7 @@ class UserbotManager:
     async def get_dialogs(self, is_only_groups: bool = False) -> list[types.Chat]:
         "Нужно ли возвращать чат или нужно диалог"
 
-        if os.environ["APP_MODE"] == "dev":
-            return []
+        # Разрешаем получение диалогов и в dev-режиме
 
         dialogs = []
         central_chats = await ChatRepo.get_central_chats()

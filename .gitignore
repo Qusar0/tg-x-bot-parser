@@ -131,7 +131,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-*.db*
 *.session
 *.session-journal
 settings.json
