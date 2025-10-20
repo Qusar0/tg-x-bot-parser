@@ -14,18 +14,26 @@ async def show_words(cb: types.CallbackQuery, callback_data: WordShowCb, state: 
     word_type = callback_data.word_type
 
     words = await WordRepo.get_all(word_type)
-    if word_type == WordType.keyword:
-        title_words = "Ключ-слова"
-    elif word_type == WordType.stopword:
-        title_words = "Стоп-слова"
-    elif word_type == WordType.filter_word:
-        title_words = "Фильтр-слова"
+    
+    # Определяем название и платформу
+    is_keyword = word_type in [WordType.tg_keyword]
+    is_stopword = word_type in [WordType.tg_stopword]
+    is_filter_word = word_type in [WordType.tg_filter_word]
+    
+    platform = "TG" if word_type.value.startswith("tg_") else "X"
+    
+    if is_keyword:
+        title_words = f"Ключ-слова {platform}"
+    elif is_stopword:
+        title_words = f"Стоп-слова {platform}"
+    elif is_filter_word:
+        title_words = f"Фильтр-слова {platform}"
 
     if not words:
         await cb.answer(f"🤷‍♂️ {title_words} еще не добавлены", show_alert=True)
         return
 
-    raw_template, html_template = get_words_template(words, word_type)
+    raw_template, html_template = await get_words_template(words, word_type)
 
     await cb.answer()
 

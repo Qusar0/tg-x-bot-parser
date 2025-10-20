@@ -39,11 +39,11 @@ def is_word_match(text: str, words: list[Word]) -> bool:
 
 
 async def check_valid_photo(session: aiohttp.ClientSession, photo: str):
-    async with session.head(photo) as resp:
-        if resp.status == 200:
-            return True
-        else:
-            return False
+    try:
+        async with session.get(photo, allow_redirects=True) as resp:
+            return 200 <= resp.status < 400 and resp.content_type.startswith("image")
+    except Exception:
+        return False
 
 
 def is_url(string: str):
@@ -111,6 +111,20 @@ async def add_source_link(text: str, header: Tag):
     return str(soup)
 
 
+async def add_x_link(text: str, link: str):
+    soup = BeautifulSoup(text, 'html.parser')
+    # link приходит как "/username/status/123..." — нормализуем
+    normalized = link.lstrip('/')
+    account_name = normalized.split('/')[0]
+    link = f"https://x.com/{normalized}"
+    source_link = soup.new_tag('a', href=link)
+    source_link.string = f"🔗 Источник: {account_name}"
+    soup.append("\n\n")
+    soup.append(source_link)
+
+    return str(soup)
+
+
 async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, chat_id: int = None):
     """
     Добавляет источник к тексту для юзербота.
@@ -147,13 +161,20 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
 
 
 def remove_links(text: str):
+    """Удаляет теги ссылок и голые URL-ы из текста."""
     soup = BeautifulSoup(text, "html.parser")
 
+    # 1) Полностью удаляем все теги <a>
     for a_tag in soup.find_all("a"):
-        a_tag.unwrap()
+        a_tag.decompose()
 
     text_content = str(soup)
 
+    # 2) Удаляем голые URL-ы (http/https, а также домены без схемы)
+    url_regex = r"(https?://\S+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:/\S*)?)"
+    text_content = re.sub(url_regex, "", text_content)
+
+    # 3) Чистим лишние пробелы/переносы
     text_content = re.sub(r'\n\s*\n\s*\n', '\n\n', text_content)
     text_content = re.sub(r'[ \t]+', ' ', text_content)
     text_content = text_content.strip()
@@ -194,6 +215,7 @@ async def preprocess_text(
     keyword: Word,
     allowed_tags=["a", "b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
     allowed_attrs={"a": ["href"]},
+    platform: str = "tg",  # "tg" или "x"
 ) -> str:
     text = text.replace("<br/>", "\n").replace("<br>", "\n")
     text = text.replace("</p>", "\n").replace("<p>", "")
@@ -206,11 +228,18 @@ async def preprocess_text(
         strip=True,
     )
 
+    # Удаляем все ссылки (теги и голые URL-ы)
     text = remove_links(text)
 
     from app.database.repo.Word import WordRepo
     from app.enums import WordType
-    filter_words = await WordRepo.get_all(WordType.filter_word)
+    
+    # Выбираем фильтр-слова в зависимости от платформы
+    if platform == "tg":
+        filter_words = await WordRepo.get_all(WordType.tg_filter_word)
+    else:  # x
+        filter_words = await WordRepo.get_all(WordType.x_filter_word)
+    
     for filter_word in filter_words:
         text = remove_keywords(text, filter_word)
 

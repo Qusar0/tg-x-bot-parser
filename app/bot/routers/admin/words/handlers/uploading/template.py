@@ -53,7 +53,19 @@ async def generate_excel(word_type: WordType) -> str:
 
 
 async def _process_word_type_upload(cb: types.CallbackQuery, word_type: WordType) -> None:
-    filename = 'Список_ключ_слов.xlsx' if word_type == WordType.keyword else 'Список_стоп_слов.xlsx'
+    # Определяем название файла
+    is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+    is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+    is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+    
+    platform = "TG" if word_type.value.startswith("tg_") else "X"
+    
+    if is_keyword:
+        filename = f'Список_ключ_слов_{platform}.xlsx'
+    elif is_stopword:
+        filename = f'Список_стоп_слов_{platform}.xlsx'
+    elif is_filter_word:
+        filename = f'Список_фильтр_слов_{platform}.xlsx'
 
     excel_path = await generate_excel(word_type)
     excel_file = FSInputFile(excel_path, filename=filename)

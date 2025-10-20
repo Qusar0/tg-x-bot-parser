@@ -1,9 +1,9 @@
 # ignore all files
-**
 
 # exclusion
-!/bot/
-
+!/app/
+!/requirements.txt
+!/Dockerfile
 !/.env
 !/poetry.lock
 !/pyproject.toml

@@ -8,7 +8,7 @@ from app.database.repo.Word import WordRepo
 from app.enums import WordType
 from app.bot.utils.plural import plural_value, PluralType
 from app.bot.callback_data import ChooseCentralChatForWordCb, WordMenuAddCb, WordManualAddCb
-from app.settings import settings
+from app.database.repo.Chat import ChatRepo
 from app.bot.routers.admin.words.handlers.add import excel_routes  # noqa
 
 
@@ -19,17 +19,24 @@ async def add_word_handler(cb: types.CallbackQuery, callback_data: WordMenuAddCb
     await state.update_data(word_type=word_type)
     await state.set_state(WordState.add_word)
 
-    central_chats = settings.get_central_chats()
+    central_chats = await ChatRepo.get_central_chats()
     if not central_chats:
         await cb.answer("⚠️ Пожалуйста, сначала добавьте чаты для переотправки", show_alert=True)
         return
 
-    if word_type == WordType.keyword:
-        word_type_name = "ключевых слов"
-    elif word_type == WordType.stopword:
-        word_type_name = "стоп-слов"
-    elif word_type == WordType.filter_word:
-        word_type_name = "фильтр-слов"
+    # Определяем название и платформу
+    is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+    is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+    is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+    
+    platform = "TG" if word_type.value.startswith("tg_") else "X"
+    
+    if is_keyword:
+        word_type_name = f"ключевых слов {platform}"
+    elif is_stopword:
+        word_type_name = f"стоп-слов {platform}"
+    elif is_filter_word:
+        word_type_name = f"фильтр-слов {platform}"
 
     await cb.message.edit_text(
         f"📝 <b>Добавление {word_type_name}</b>\n\n"
@@ -46,17 +53,24 @@ async def manual_add_handler(cb: types.CallbackQuery, callback_data: WordManualA
     await state.update_data(word_type=word_type)
     await state.set_state(WordState.add_word)
 
-    if word_type == WordType.keyword:
+    # Определяем название и платформу
+    is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+    is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+    is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+    
+    platform = "TG" if word_type.value.startswith("tg_") else "X"
+    
+    if is_keyword:
         await cb.message.edit_text(
-            "💬 В какой чат добавить ключ-слова ?", reply_markup=Markup.choose_central_chat(word_type)
+            f"💬 В какой чат добавить ключ-слова {platform}?", reply_markup=await Markup.choose_central_chat(word_type)
         )
-    elif word_type == WordType.stopword:
+    elif is_stopword:
         await cb.message.edit_text(
-            "💬 В какой чат добавить стоп-слова ?", reply_markup=Markup.choose_central_chat(word_type)
+            f"💬 В какой чат добавить стоп-слова {platform}?", reply_markup=await Markup.choose_central_chat(word_type)
         )
-    elif word_type == WordType.filter_word:
+    elif is_filter_word:
         await cb.message.edit_text(
-            "💬 В какой чат добавить фильтр-слова ?", reply_markup=Markup.choose_central_chat(word_type)
+            f"💬 В какой чат добавить фильтр-слова {platform}?", reply_markup=await Markup.choose_central_chat(word_type)
         )
     await cb.answer()
 
@@ -66,19 +80,26 @@ async def choose_central_chat(cb: types.CallbackQuery, callback_data: ChooseCent
     await state.update_data(central_chat_id=callback_data.chat_id)
     word_type = callback_data.word_type
 
-    if word_type == WordType.keyword:
+    # Определяем название и платформу
+    is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+    is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+    is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+    
+    platform = "TG" if word_type.value.startswith("tg_") else "X"
+    
+    if is_keyword:
         await cb.message.edit_text(
-            "🔑 Пожалуйста, отправьте новые ключ-слова:",
+            f"🔑 Пожалуйста, отправьте новые ключ-слова {platform}:",
             reply_markup=Markup.back_menu(word_type),
         )
-    elif word_type == WordType.stopword:
+    elif is_stopword:
         await cb.message.edit_text(
-            "🛑 Пожалуйста, отправьте стоп-слова для добавления:",
+            f"🛑 Пожалуйста, отправьте стоп-слова {platform} для добавления:",
             reply_markup=Markup.back_menu(word_type),
         )
-    elif word_type == WordType.filter_word:
+    elif is_filter_word:
         await cb.message.edit_text(
-            "🔍 Пожалуйста, отправьте фильтр-слова для добавления:",
+            f"🔍 Пожалуйста, отправьте фильтр-слова {platform} для добавления:",
             reply_markup=Markup.back_menu(word_type),
         )
 
@@ -93,14 +114,11 @@ async def add_word_scene(message: types.Message, state: FSMContext):
     words = extract_words(message.text)
     response_template = "<b>{added_words} добавлено в чат: {chat_title} ✅</b>\n<u>Вернитесь назад или добавьте еще:</u>"
 
-    central_chat = next(filter(lambda chat: chat.chat_id == central_chat_id, settings.get_central_chats()))
+    from app.database.repo.Chat import ChatRepo
+    central_chat = await ChatRepo.get_by_telegram_id(central_chat_id)
 
-    if word_type == WordType.stopword:
-        added_words = await WordRepo.add_many(words, word_type, central_chat_id)
-    elif word_type == WordType.keyword:
-        added_words = await WordRepo.add_many(words, word_type, central_chat_id)
-    elif word_type == WordType.filter_word:
-        added_words = await WordRepo.add_many(words, word_type, central_chat_id)
+    # Добавляем слова для любого типа
+    added_words = await WordRepo.add_many(words, word_type, central_chat_id)
 
     await message.answer(
         response_template.format(

@@ -1,7 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from app.enums import WordType
-from app.settings import settings
+from app.database.repo.Chat import ChatRepo
 from app.bot.callback_data import (
     back_menu_cb,
     ChooseCentralChatForWordCb,
@@ -22,18 +22,18 @@ class Markup:
         return markup.as_markup()
 
     @staticmethod
-    def choose_central_chat(word_type: WordType) -> InlineKeyboardMarkup:
+    async def choose_central_chat(word_type: WordType) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
-        for chat in settings.get_central_chats():
+        for chat in await ChatRepo.get_central_chats():
             markup.row(
                 InlineKeyboardButton(
                     text=chat.title,
-                    callback_data=ChooseCentralChatForWordCb(word_type=word_type, chat_id=chat.chat_id).pack(),
+                    callback_data=ChooseCentralChatForWordCb(word_type=word_type, chat_id=chat.telegram_id).pack(),
                 )
             )
 
-        markup.row(InlineKeyboardButton(text="« Назад", callback_data=WordMenuCb(word_type=WordType.keyword).pack()))
+        markup.row(InlineKeyboardButton(text="« Назад", callback_data=back_menu_cb))
 
         return markup.as_markup()
 
@@ -41,12 +41,19 @@ class Markup:
     def delete_all_words(word_type: WordType) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
-        if word_type == WordType.stopword:
-            text = "❌ Удалить все стоп-слова"
-        elif word_type == WordType.keyword:
-            text = "❌ Удалить все ключ-слова"
-        elif word_type == WordType.filter_word:
-            text = "❌ Удалить все фильтр-слова"
+        # Определяем название и платформу
+        is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+        is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+        is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+        
+        platform = "TG" if word_type.value.startswith("tg_") else "X"
+        
+        if is_keyword:
+            text = f"❌ Удалить все ключ-слова {platform}"
+        elif is_stopword:
+            text = f"❌ Удалить все стоп-слова {platform}"
+        elif is_filter_word:
+            text = f"❌ Удалить все фильтр-слова {platform}"
 
         markup.row(
             InlineKeyboardButton(
@@ -67,71 +74,78 @@ class Markup:
     def open_menu(word_type: WordType) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
-        if word_type == WordType.keyword:
+        # Определяем тип слова и платформу
+        is_keyword = word_type in [WordType.tg_keyword, WordType.x_keyword]
+        is_stopword = word_type in [WordType.tg_stopword, WordType.x_stopword]
+        is_filter_word = word_type in [WordType.tg_filter_word, WordType.x_filter_word]
+        
+        platform = "TG" if word_type.value.startswith("tg_") else "X"
+        
+        if is_keyword:
             markup.row(
                 InlineKeyboardButton(
-                    text="➕ Ключ-слова",
-                    callback_data=WordMenuAddCb(word_type=WordType.keyword).pack(),
+                    text=f"➕ Ключ-слова {platform}",
+                    callback_data=WordMenuAddCb(word_type=word_type).pack(),
                 ),
                 InlineKeyboardButton(
-                    text="➖ Ключ-слова",
-                    callback_data=WordMenuDeleteCb(word_type=WordType.keyword).pack(),
+                    text=f"➖ Ключ-слова {platform}",
+                    callback_data=WordMenuDeleteCb(word_type=word_type).pack(),
                 ),
             )
             markup.row(
                 InlineKeyboardButton(
-                    text="👁️ Список ключ-слов",
+                    text=f"👁️ Список ключ-слов {platform}",
                     callback_data=WordShowCb(word_type=word_type).pack())
             )
             markup.row(
                 InlineKeyboardButton(
-                    text="📗 Список ключ-слов Excel",
-                    callback_data=WordUploadingCb(word_type=WordType.keyword).pack()
+                    text=f"📗 Список ключ-слов {platform} Excel",
+                    callback_data=WordUploadingCb(word_type=word_type).pack()
                 )
             )
 
-        elif word_type == WordType.stopword:
+        elif is_stopword:
             markup.row(
                 InlineKeyboardButton(
-                    text="➕ Стоп-слова",
-                    callback_data=WordMenuAddCb(word_type=WordType.stopword).pack(),
+                    text=f"➕ Стоп-слова {platform}",
+                    callback_data=WordMenuAddCb(word_type=word_type).pack(),
                 ),
                 InlineKeyboardButton(
-                    text="➖ Стоп-слова",
-                    callback_data=WordMenuDeleteCb(word_type=WordType.stopword).pack(),
+                    text=f"➖ Стоп-слова {platform}",
+                    callback_data=WordMenuDeleteCb(word_type=word_type).pack(),
                 ),
             )
             markup.row(
                 InlineKeyboardButton(
-                    text="👁️ Список стоп-слов",
+                    text=f"👁️ Список стоп-слов {platform}",
                     callback_data=WordShowCb(word_type=word_type).pack())
             )
             markup.row(
                 InlineKeyboardButton(
-                    text="📗 Список стоп-слов Excel",
-                    callback_data=WordUploadingCb(word_type=WordType.stopword).pack()
+                    text=f"📗 Список стоп-слов {platform} Excel",
+                    callback_data=WordUploadingCb(word_type=word_type).pack()
                 )
             )
-        elif word_type == WordType.filter_word:
+        elif is_filter_word:
             markup.row(
                 InlineKeyboardButton(
-                    text="➕ Фильтр-слова",
-                    callback_data=WordMenuAddCb(word_type=WordType.filter_word).pack(),
+                    text=f"➕ Фильтр-слова {platform}",
+                    callback_data=WordMenuAddCb(word_type=word_type).pack(),
                 ),
                 InlineKeyboardButton(
-                    text="➖ Фильтр-слова",
-                    callback_data=WordMenuDeleteCb(word_type=WordType.filter_word).pack(),
+                    text=f"➖ Фильтр-слова {platform}",
+                    callback_data=WordMenuDeleteCb(word_type=word_type).pack(),
                 ),
             )
             markup.row(
                 InlineKeyboardButton(
-                    text="👁️ Список фильтр-слов",
+                    text=f"👁️ Список фильтр-слов {platform}",
                     callback_data=WordShowCb(word_type=word_type).pack())
             )
             markup.row(
                 InlineKeyboardButton(
-                    text="📗 Список фильтр-слов Excel",
-                    callback_data=WordUploadingCb(word_type=WordType.filter_word).pack()
+                    text=f"📗 Список фильтр-слов {platform} Excel",
+                    callback_data=WordUploadingCb(word_type=word_type).pack()
                 )
             )
 
@@ -140,15 +154,15 @@ class Markup:
         return markup.as_markup()
 
     @staticmethod
-    def choose_central_chat_for_excel(word_type: WordType) -> InlineKeyboardMarkup:
+    async def choose_central_chat_for_excel(word_type: WordType) -> InlineKeyboardMarkup:
         from app.bot.callback_data import ChooseChatForExcelCb
         markup = InlineKeyboardBuilder()
 
-        for chat in settings.get_central_chats():
+        for chat in await ChatRepo.get_central_chats():
             markup.row(
                 InlineKeyboardButton(
                     text=chat.title,
-                    callback_data=ChooseChatForExcelCb(word_type=word_type, chat_id=chat.chat_id).pack(),
+                    callback_data=ChooseChatForExcelCb(word_type=word_type, chat_id=chat.telegram_id).pack(),
                 )
             )
 

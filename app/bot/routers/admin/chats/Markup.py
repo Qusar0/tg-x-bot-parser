@@ -26,7 +26,7 @@ from app.bot.callback_data import (
     chats_re_evaluation_cb,
     ChatRatingCb,
 )
-from app.settings import settings
+from app.database.repo.Chat import ChatRepo
 from .phrases import cancel_chat_action
 
 
@@ -92,13 +92,15 @@ class Markup:
         return markup.as_markup()
 
     @staticmethod
-    def back_central_chat(is_add: bool = False) -> InlineKeyboardMarkup:
+    async def back_central_chat(is_add: bool = False) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
-        if is_add and not settings.get_central_chats():
-            markup.row(
-                InlineKeyboardButton(text="👋 Добавить меня (текущий чат)", callback_data=chats_central_add_me_cb)
-            )
+        if is_add:
+            central_chats = await ChatRepo.get_central_chats()
+            if not central_chats:
+                markup.row(
+                    InlineKeyboardButton(text="👋 Добавить меня (текущий чат)", callback_data=chats_central_add_me_cb)
+                )
 
         markup.row(InlineKeyboardButton(text="⬅️ Вернуться назад", callback_data=chats_central_cb))
         return markup.as_markup()
@@ -171,6 +173,9 @@ class Markup:
             InlineKeyboardButton(text='📗 Загрузить из Excel', callback_data=chats_add_excel_cb)
         )
         markup.row(
+            InlineKeyboardButton(text='📂 Выбрать из аккаунта', callback_data=chats_load_from_account)
+        )
+        markup.row(
             InlineKeyboardButton(text="🤚 Загрузить вручную", callback_data=chats_add_cb)
         )
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_monitorings_cb))
@@ -190,14 +195,14 @@ class Markup:
         return markup.as_markup()
 
     @staticmethod
-    def remove_central_chats() -> InlineKeyboardMarkup:
+    async def remove_central_chats() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
-        for chat in settings.get_central_chats():
+        for chat in await ChatRepo.get_central_chats():
             markup.row(
                 InlineKeyboardButton(
-                    text=f"🗑 {chat.title} | {chat.chat_id}",
-                    callback_data=ChatsCentralDeleteCb(chat_id=chat.chat_id).pack(),
+                    text=f"🗑 {chat.title} | {chat.telegram_id}",
+                    callback_data=ChatsCentralDeleteCb(chat_id=chat.telegram_id).pack(),
                 )
             )
 

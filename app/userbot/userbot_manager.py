@@ -6,7 +6,7 @@ from pyrogram.handlers import MessageHandler
 from pyrogram.errors import UserAlreadyParticipant, UserBot
 from app.userbot.handlers import Handlers
 from app.config import config
-from app.settings import settings
+from app.database.repo.Chat import ChatRepo
 
 
 class UserbotManager:
@@ -20,9 +20,12 @@ class UserbotManager:
         )
 
     async def start(self):
+        logger.info("Запускаем userbot...")
         self.client.add_handler(MessageHandler(Handlers.message_handler, filters.incoming))
+        logger.info("Обработчик сообщений добавлен")
         await self.client.start()
         logger.success("Юзербот запущен!")
+        logger.info("Userbot готов к получению сообщений")
         await idle()
         await self.client.stop()
 
@@ -57,11 +60,11 @@ class UserbotManager:
     async def get_dialogs(self, is_only_groups: bool = False) -> list[types.Chat]:
         "Нужно ли возвращать чат или нужно диалог"
 
-        if os.environ["APP_MODE"] == "dev":
-            return []
+        # Разрешаем получение диалогов и в dev-режиме
 
         dialogs = []
-        central_chats_ids = [central_chat.chat_id for central_chat in settings.get_central_chats()]
+        central_chats = await ChatRepo.get_central_chats()
+        central_chats_ids = [central.telegram_id for central in central_chats]
 
         async for dialog in self.client.get_dialogs():
             if is_only_groups:
@@ -73,7 +76,7 @@ class UserbotManager:
                     enums.ChatType.CHANNEL.value,
                     enums.ChatType.SUPERGROUP.value,
                 ]:
-                    if dialog.chat not in central_chats_ids:
+                    if getattr(dialog.chat, 'id', None) not in central_chats_ids:
                         dialogs.append(dialog.chat)
             else:
                 dialogs.append(dialog.chat)

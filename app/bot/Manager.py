@@ -4,8 +4,9 @@ from aiogram.utils.media_group import MediaGroupBuilder
 from loguru import logger
 from app.bot.loader import bot
 from app.helpers import check_valid_photo
-from app.settings import settings
+from app.database.repo.Chat import ChatRepo
 from aiogram.types import FSInputFile
+from aiogram.types.input_file import BufferedInputFile
 import os
 
 
@@ -13,7 +14,7 @@ class BotManager:
     @staticmethod
     async def send_message(chat_id: int, text: str, reply_markup=None):
         try:
-            logger.info(f"Отправляем сообщение в чат {chat_id}")
+            logger.info(f"Отправляем сообщение в чат {chat_id}, текст: {text[:50]}...")
             await bot.send_message(chat_id, text, reply_markup=reply_markup)
             logger.success(f"Сообщение успешно отправлено в чат {chat_id}")
         except Exception as ex:
@@ -21,17 +22,32 @@ class BotManager:
 
     @staticmethod
     async def send_photo(chat_id: int, photo: str, text: str, reply_markup=None):
-        async with aiohttp.ClientSession() as session:
-            if not await check_valid_photo(session, photo):
-                logger.warning(f"Поврежденная фотография: {photo}")
-                await bot.send_message(chat_id, text, reply_markup=reply_markup)
-                return
+        # Сначала пробуем отправить по URL прямо Телеграму
         try:
             await bot.send_photo(chat_id, photo, caption=text, reply_markup=reply_markup)
+            return
         except Exception as ex:
-            logger.error(
-                f"An error {ex} occurred when sending photo to {chat_id=}"
-            )
+            logger.warning(f"Direct URL send failed, fallback to download. Error: {ex}")
+
+        # Фоллбэк: скачиваем сами и отправляем как файл
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(photo, allow_redirects=True) as resp:
+                    if 200 <= resp.status < 400:
+                        content = await resp.read()
+                        content_type = resp.headers.get("Content-Type", "image/jpeg")
+                        ext = ".jpg"
+                        if "png" in content_type:
+                            ext = ".png"
+                        elif "webp" in content_type:
+                            ext = ".webp"
+                        file = BufferedInputFile(content, filename=f"photo{ext}")
+                        await bot.send_photo(chat_id, file, caption=text, reply_markup=reply_markup)
+                        return
+        except Exception as ex:
+            logger.error(f"Fallback download send failed for {chat_id=}, url={photo}. Error: {ex}")
+        # В крайнем случае отправляем только текст
+        await bot.send_message(chat_id, text, reply_markup=reply_markup)
 
     @staticmethod
     async def send_photo_from_userbot(chat_id: int, userbot_client, message, text: str, reply_markup=None):
@@ -98,29 +114,49 @@ class BotManager:
 
     @staticmethod
     async def send_media_group(chat_id: int, photos: list[str], text: str, reply_markup=None):
-        async with aiohttp.ClientSession() as session:
-            tasks = [check_valid_photo(session, photo) for photo in photos]
-            photos_resp = await asyncio.gather(*tasks)
-            valid_photos = [photo for photo, valid in zip(photos, photos_resp) if valid]
-
-        if not valid_photos:
-            await bot.send_message(chat_id, text, reply_markup=reply_markup)
-            logger.warning(f"Невозможно отправить поврежденные фотографии: {photos}")
-            return
-
+        # Попытка отправить по URL напрямую
         media_group = MediaGroupBuilder(caption=text)
-
         for photo in photos:
             media_group.add_photo(photo)
-
         try:
             await bot.send_media_group(chat_id, media=media_group.build())
+            return
         except Exception as ex:
-            logger.error(
-                f"An error {ex} occurred when sending media group to {chat_id=}"
-            )
+            logger.warning(f"Direct media group send failed, fallback to download. Error: {ex}")
+
+        # Фоллбэк: скачиваем сами и отправляем как файлы
+        try:
+            files: list[BufferedInputFile] = []
+            async with aiohttp.ClientSession() as session:
+                for photo in photos:
+                    try:
+                        async with session.get(photo, allow_redirects=True) as resp:
+                            if 200 <= resp.status < 400:
+                                content = await resp.read()
+                                content_type = resp.headers.get("Content-Type", "image/jpeg")
+                                ext = ".jpg"
+                                if "png" in content_type:
+                                    ext = ".png"
+                                elif "webp" in content_type:
+                                    ext = ".webp"
+                                files.append(BufferedInputFile(content, filename=f"photo{ext}"))
+                    except Exception:
+                        continue
+
+            if not files:
+                await bot.send_message(chat_id, text, reply_markup=reply_markup)
+                logger.warning(f"Невозможно отправить фотографии (fallback пуст): {photos}")
+                return
+
+            media_group = MediaGroupBuilder(caption=text)
+            for f in files:
+                media_group.add_photo(f)
+            await bot.send_media_group(chat_id, media=media_group.build())
+        except Exception as ex:
+            logger.error(f"Fallback media group send failed for {chat_id=}. Error: {ex}")
+            await bot.send_message(chat_id, text, reply_markup=reply_markup)
 
     @staticmethod
     async def send_message_to_central_chats(text: str, reply_markup=None):
-        for central_chat in settings.get_central_chats():
-            await BotManager.send_message(central_chat.chat_id, text, reply_markup)
+        for central_chat in await ChatRepo.get_central_chats():
+            await BotManager.send_message(central_chat.telegram_id, text, reply_markup)

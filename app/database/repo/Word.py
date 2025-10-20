@@ -55,3 +55,20 @@ class WordRepo:
                 pass
 
         return deleted_count
+
+    @staticmethod
+    async def get_by_platform(word_type: WordType, central_chat_id: int = None) -> list[Word]:
+        """Получить слова по платформе и опционально по чату"""
+        query = Word.filter(word_type=word_type)
+        if central_chat_id:
+            query = query.filter(central_chat_id=central_chat_id)
+        return await query.all()
+
+    @staticmethod
+    async def get_platform_stats() -> dict:
+        """Получить статистику по платформам"""
+        stats = {}
+        for word_type in WordType:
+            count = await Word.filter(word_type=word_type).count()
+            stats[word_type.value] = count
+        return stats
