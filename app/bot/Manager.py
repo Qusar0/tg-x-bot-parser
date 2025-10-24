@@ -22,14 +22,21 @@ class BotManager:
 
     @staticmethod
     async def send_photo(chat_id: int, photo: str, text: str, reply_markup=None):
-        # Сначала пробуем отправить по URL прямо Телеграму
         try:
             await bot.send_photo(chat_id, photo, caption=text, reply_markup=reply_markup)
+            return
+        except TelegramBadRequest as e:
+            # Ошибка Telegram API (например, бот не админ, неверный чат и т.п.)
+            logger.error(f"BadRequest при отправке фото в чат {chat_id}: {e}")
+            return  # чтобы не падал парсер
+        except TelegramForbiddenError as e:
+            # Бот заблокирован / удалён из чата
+            logger.error(f"Forbidden при отправке фото в чат {chat_id}: {e}")
             return
         except Exception as ex:
             logger.warning(f"Direct URL send failed, fallback to download. Error: {ex}")
 
-        # Фоллбэк: скачиваем сами и отправляем как файл
+    # Фоллбэк: скачиваем и отправляем как файл
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(photo, allow_redirects=True) as resp:
@@ -45,9 +52,14 @@ class BotManager:
                         await bot.send_photo(chat_id, file, caption=text, reply_markup=reply_markup)
                         return
         except Exception as ex:
-            logger.error(f"Fallback download send failed for {chat_id=}, url={photo}. Error: {ex}")
-        # В крайнем случае отправляем только текст
-        await bot.send_message(chat_id, text, reply_markup=reply_markup)
+        # Ошибка скачивания или отправки файла
+            logger.error(f"Fallback download send failed for chat_id={chat_id}, url={photo}. Error: {ex}")
+
+    # В крайнем случае — просто текст, без фото
+        try:
+            await bot.send_message(chat_id, text, reply_markup=reply_markup)
+        except Exception as ex:
+            logger.error(f"Ошибка отправки текстового fallback-сообщения в чат {chat_id}: {ex}")
 
     @staticmethod
     async def send_photo_from_userbot(chat_id: int, userbot_client, message, text: str, reply_markup=None):

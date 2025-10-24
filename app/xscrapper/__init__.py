@@ -56,7 +56,6 @@ class XScrapper:
         # Используем системный Chrome
         self.browser = await self.p.chromium.launch(
             headless=True,
-            executable_path='/usr/bin/google-chrome',
             args=browser_args,
             proxy={
                 "server": "http://130.254.41.43:6663",
@@ -112,12 +111,19 @@ class XScrapper:
             exit_loop = False
 
             logger.info("Парсим и анализируем видимые посты")
+            logger.info(f"keyword: {keyword.title}")
             await self.page.wait_for_timeout(5000)
             html_content = await self.page.content()
             soup = BeautifulSoup(html_content, "lxml")
 
             cards = soup.select("article[data-testid='tweet']")
-            if all(item in FETCHED_CARDS for item in cards):
+            ids = []
+            for card in cards:
+               a_tag = card.find("a", href=lambda x: x and "/status/" in x)
+               if a_tag:
+                    id = a_tag.get("href").split("/")[-1]
+                    ids.append(id)
+            if all(item in FETCHED_CARDS for item in ids):
                 logger.info("Закончились посты по этому ключ-слову")
                 break
             for card in cards:
@@ -135,6 +141,7 @@ class XScrapper:
                         # Точка выхода, если возраст поста > 24h
                         exit_loop = True
                         break
+                    logger.info(f"tag={time_tag}, delta={delta}, exit_loop={exit_loop}")
                 
                 # Парс текста
                 tweet_div = card.find("div", {"data-testid": "tweetText"})
@@ -158,8 +165,9 @@ class XScrapper:
                 if a_tag:
                     link = a_tag.get("href")
                     id = link.split("/")[-1]
-
+                logger.info(f"id = {id}")
                 if id in FETCHED_CARDS:
+                    logger.info(f"id: {id} alrady in FETCHED_CARDS")
                     continue
                 FETCHED_CARDS.append(id)
 
@@ -174,19 +182,14 @@ class XScrapper:
                 processed_text = await preprocess_text(tweet_div, keyword, platform="x")
                 processed_text = await add_x_link(processed_text, link)
                 if len(imgs) > 1:
-                    asyncio.create_task(
-                        queue.call(
+                    await queue.call(
                             (BotManager.send_media_group, chat_id, imgs, processed_text)
                         )
-                    )
+                    
                 elif len(imgs) == 1:
-                    asyncio.create_task(
-                        queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
-                    )
+                    await queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
                 else:
-                    asyncio.create_task(
-                        queue.call((BotManager.send_message, chat_id, processed_text))
-                    )
+                    await queue.call((BotManager.send_message, chat_id, processed_text))
             if exit_loop:
                 logger.info("Скролим страницу и ищем новые посты")
                 break
@@ -238,6 +241,7 @@ class XScrapper:
                 sleep_sec = settings.get_scrapper_page_sleep_sec()
                 sleep_sec = random.randint(sleep_sec, sleep_sec + 60)
                 logger.info(f"Спим: {sleep_sec} сек.")
+
 
                 if self.page is not None:
                     await self.page.wait_for_timeout(sleep_sec * 1000)
