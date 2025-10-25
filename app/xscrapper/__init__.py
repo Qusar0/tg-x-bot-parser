@@ -55,13 +55,13 @@ class XScrapper:
         
         # Используем системный Chrome
         self.browser = await self.p.chromium.launch(
-            headless=True,
+            headless=False,
             args=browser_args,
-            proxy={
-                "server": "http://130.254.41.43:6663",
-                "username": "user239081",
-                "password": "6iogl9"
-            }
+            # proxy={
+            #     "server": "http://130.254.41.43:6663",
+            #     "username": "user239081",
+            #     "password": "6iogl9"
+            # }
         )
         self.context = await self.browser.new_context()
 
@@ -82,20 +82,21 @@ class XScrapper:
         try:
             keywords = await WordRepo.get_all(WordType.x_keyword)
             stopwords = await WordRepo.get_all(WordType.x_stopword)
+            channels = ["https://x.com/SpaceX"]
             if not keywords:
                 logger.info("Ключевые слова отсутствуют.")
                 await asyncio.sleep(10)
                 return
 
-            for idx, keyword in enumerate(keywords, start=1):
+            for idx, channel_url in enumerate(channels, start=1):
                 try:
                     is_first_search = idx == 1
 
                     if is_first_search:
                         await self.load_search_page()
 
-                    await self.input_search_keywords(keyword.title, is_first_search)
-                    await self.parse_posts(keyword.central_chat_id, stopwords, keyword)
+                    await self.load_search_channel(channel_url)
+                    await self.parse_posts(stopwords, keywords)
 
                 finally:
                     await asyncio.sleep(10)
@@ -104,14 +105,18 @@ class XScrapper:
             logger.error(ex)
             traceback.print_exc()
 
-    async def parse_posts(self, chat_id: int, stopwords: list[Word], keyword: Word):
-        """Поиск постов, сбор информации по определенному ключ-слову"""
+    async def parse_posts(self, stopwords: list[Word], keywords: list[Word]):
+        """Поиск постов, сбор информации по определенному чату"""
         FETCHED_CARDS = await get_fetched_post_ids()
+        FETCHED_CARDS = []
+        logger.info(f"FETCHED_CARDS: {FETCHED_CARDS}")
+
+        #  Страница грузится на профиль где не сразу видно посты, флаг нужен для первого скрола, когда ничего не нашло
+        begin_page = True
         while True:
             exit_loop = False
 
             logger.info("Парсим и анализируем видимые посты")
-            logger.info(f"keyword: {keyword.title}")
             await self.page.wait_for_timeout(5000)
             html_content = await self.page.content()
             soup = BeautifulSoup(html_content, "lxml")
@@ -123,10 +128,34 @@ class XScrapper:
                 if a_tag:
                     id = a_tag.get("href").split("/")[-1]
                     ids.append(id)
-            if all(item in FETCHED_CARDS for item in ids):
+            logger.info(f"ids = {ids}")
+            if all(item in FETCHED_CARDS for item in ids) and not begin_page:
                 logger.info("Закончились посты по этому ключ-слову")
                 break
+            logger.info(f"FETCHED_CARDS: {FETCHED_CARDS}")
             for card in cards:
+                # Парс идентификатора и ссылки
+                a_tag = card.find("a", href=lambda x: x and "/status/" in x)
+                if a_tag:
+                    link = a_tag.get("href")
+                    id = link.split("/")[-1]
+                logger.info(f"id = {id}")
+
+                if id in FETCHED_CARDS:
+                    logger.info(f"id: {id} alrady in FETCHED_CARDS")
+                    continue
+                FETCHED_CARDS.append(id)
+
+                # Парс закрепа
+                is_pinned = any(
+                    "pinned" in div.get_text(strip=True).lower()
+                    for div in card.find_all(["div", "span"])
+                )
+
+                if is_pinned:
+                    logger.info("Найден закрепленный пост, пропускаем")
+                    continue
+                
                 time_tag = card.find("time")
                 if time_tag:
                     datetime_str = time_tag.get("datetime")
@@ -141,8 +170,8 @@ class XScrapper:
                         # Точка выхода, если возраст поста > 24h
                         exit_loop = True
                         break
-                    logger.info(f"tag={time_tag}, delta={delta}, exit_loop={exit_loop}")
-                
+                    logger.info(f"delta={delta}, exit_loop={exit_loop}")
+
                 # Парс текста
                 tweet_div = card.find("div", {"data-testid": "tweetText"})
 
@@ -151,7 +180,6 @@ class XScrapper:
                 #     print(tweet_text)
                 tweet_div = str(tweet_div)
 
-                # Парс медиа
                 photo_divs = card.find_all("div", {"data-testid": "tweetPhoto"})
                 imgs = []
                 for div in photo_divs:
@@ -160,38 +188,33 @@ class XScrapper:
                         imgs.append(img["src"])
                 logger.info(f"{imgs}")
 
-                # Парс идентификатора
-                a_tag = card.find("a", href=lambda x: x and "/status/" in x)
-                if a_tag:
-                    link = a_tag.get("href")
-                    id = link.split("/")[-1]
-                logger.info(f"id = {id}")
-                if id in FETCHED_CARDS:
-                    logger.info(f"id: {id} alrady in FETCHED_CARDS")
-                    continue
-                FETCHED_CARDS.append(id)
+                for keyword in keywords:
+                    if keyword.title in tweet_div:
 
-                if is_word_match(tweet_div, stopwords):
-                    logger.info(f"Нашли стоп-слова в сообщении: {id}")
-                    continue
+                        chat_id = keyword.central_chat_id
 
-                if await is_duplicate(id, tweet_div):
-                    logger.info(f"Сообщение дубликат: {id}")
-                    continue
+                        if is_word_match(tweet_div, stopwords):
+                            logger.info(f"Нашли стоп-слова в сообщении: {id}")
+                            continue
 
-                processed_text = await preprocess_text(tweet_div, keyword, platform="x")
-                processed_text = await add_x_link(processed_text, link)
-                if len(imgs) > 1:
-                    await queue.call(
-                            (BotManager.send_media_group, chat_id, imgs, processed_text)
-                        )
-                    
-                elif len(imgs) == 1:
-                    await queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
-                else:
-                    await queue.call((BotManager.send_message, chat_id, processed_text))
+                        if await is_duplicate(id, tweet_div):
+                            logger.info(f"Сообщение дубликат: {id}")
+                            continue
+
+                        processed_text = await preprocess_text(tweet_div, keyword, platform="x")
+                        processed_text = await add_x_link(processed_text, link)
+                        if len(imgs) > 1:
+                            await queue.call(
+                                (BotManager.send_media_group, chat_id, imgs, processed_text)
+                            )
+
+                        elif len(imgs) == 1:
+                            await queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
+                        else:
+                            await queue.call((BotManager.send_message, chat_id, processed_text))
+
             if exit_loop:
-                logger.info("Скролим страницу и ищем новые посты")
+                logger.info("Закончились посты в этом канале")
                 break
 
             logger.info("Скролим страницу и ищем новые посты")
@@ -201,6 +224,7 @@ class XScrapper:
             """
             )
             await self.page.wait_for_timeout(1000)
+            begin_page = False
 
     async def load_search_page(self):
         """Грузим поисковую страницу"""
@@ -208,24 +232,14 @@ class XScrapper:
         self.page = await self.context.new_page()
         if not self.is_load_cookie:
             await self._load_cookie()
-        await self.page.goto(self.SEARCH_URL, timeout=40000)
 
-        time.sleep(4)
+        time.sleep(2)
 
-    async def input_search_keywords(self, keyword_request: str, is_first_search: bool):
+    async def load_search_channel(self, channel_url: str):
         """Вводим поисковой запрос"""
-
-        input_selector = "input[placeholder='Search']"
-        await self.page.wait_for_selector(input_selector)
-        await self.page.fill(input_selector, keyword_request)
-        time.sleep(1)
-        await self.page.press(input_selector, "Enter")
-        time.sleep(1)
-        if is_first_search:
-            latest_button = "//nav/div/div[2]/div/div[2]/a"
-            await self.page.locator(latest_button).click()
-
-        logger.debug(f"Делаем запрос с ключами: {keyword_request}")
+        await self.page.goto(channel_url)
+        await self.page.wait_for_timeout(1000)
+        logger.debug(f"Начинаем поиск в канале: {channel_url}")
 
     async def start(self):
         await self._load_driver()
