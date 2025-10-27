@@ -13,15 +13,26 @@ POST_KEY = "post:{id}"
 
 async def is_duplicate(id: str, original_text: str) -> bool:
     original_text = original_text.lower()
+    from loguru import logger
 
-    texts = await redis_store.values(POST_KEY.format(id="*"))
+    try:
+        texts = await redis_store.values(POST_KEY.format(id="*"))
+        logger.info(f"Проверяем дубликаты для ID: {id}, текстов в Redis: {len(texts) if texts else 0}")
+        
+        # Проверяем, что texts не None и не пустой
+        if texts:
+            for i, text in enumerate(texts):
+                if text and original_text == text:
+                    logger.info(f"Найден дубликат! ID: {id}, совпадение с текстом #{i}")
+                    return True
 
-    for text in texts:
-        if original_text == text:
-            return True
-
-    await redis_store.set_value_ex(POST_KEY.format(id=id), original_text, 60 * 60 * 24)
-    return False
+        await redis_store.set_value_ex(POST_KEY.format(id=id), original_text, 60 * 60 * 24)
+        logger.info(f"Сохраняем новый пост в Redis: {id}")
+        return False
+    except Exception as e:
+        # Если Redis недоступен, логируем ошибку и продолжаем без проверки дубликатов
+        logger.error(f"Ошибка при проверке дубликатов: {e}")
+        return False
 
 
 async def get_fetched_post_ids():
@@ -111,15 +122,23 @@ async def add_source_link(text: str, header: Tag):
     return str(soup)
 
 
-async def add_x_link(text: str, link: str):
+async def add_x_link(text: str, link: str, channel_rating: int = 0):
     soup = BeautifulSoup(text, 'html.parser')
     # link приходит как "/username/status/123..." — нормализуем
     normalized = link.lstrip('/')
     account_name = normalized.split('/')[0]
     link = f"https://x.com/{normalized}"
+    
+    # Добавляем рейтинг
+    rating_text = f"⭐{channel_rating}" if channel_rating > 0 else "❌"
+    rating_element = soup.new_string(f"Рейтинг: {rating_text}\n")
+    
     source_link = soup.new_tag('a', href=link)
     source_link.string = f"🔗 Источник: {account_name}"
+    
     soup.append("\n\n")
+    soup.append(rating_element)
+    soup.append("\n")
     soup.append(source_link)
 
     return str(soup)

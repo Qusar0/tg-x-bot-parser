@@ -10,6 +10,18 @@ delete_cb = "delete"
 tg_parser_cb = "tg-parser"
 x_parser_cb = "x-parser"
 
+# X каналы
+x_channels_cb = "x-channels"
+x_channels_add_cb = "x-channels-add"
+x_channels_choose_add_cb = "x-channels-choose-add"
+x_channels_add_excel_cb = "x-channels-add-excel"
+x_channels_remove_cb = "x-channels-remove"
+x_channels_show_cb = "x-channels-show"
+x_channels_uploading_cb = "x-channels-excel"
+x_channels_rating_cb = "x-channels-rating"
+x_channels_without_rating_cb = "x-channels-without-rating"
+x_channels_re_evaluation_cb = "x-channels-re-evaluation"
+
 # Чаты
 chats_cb = "chats"
 chats_monitorings_cb = "chats-monitorings"
@@ -105,3 +117,12 @@ class WordManualAddCb(CallbackData, prefix="wma"):
 class ChooseChatForExcelCb(CallbackData, prefix="cce"):
     word_type: WordType
     chat_id: int
+
+
+class XChannelDeleteCb(CallbackData, prefix="xcd"):
+    channel_id: int
+
+
+class XChannelRatingCb(CallbackData, prefix="xcr"):
+    channel_id: int
+    rating: int

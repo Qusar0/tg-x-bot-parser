@@ -43,17 +43,21 @@ class RedisStore:
     async def keys(self, pattern: str) -> list:
         try:
             result = await self.redis.keys(pattern)
-            return result
+            return result or []
         except Exception as e:
             logger.error(f"[REDIS_KEYS] from Redis: {e}")
+            return []
 
     async def values(self, pattern: str) -> list:
         try:
             keys = await self.keys(pattern)
+            if not keys:
+                return []
             result = await self.redis.mget(keys)
-            return result
+            return result or []
         except Exception as e:
             logger.error(f"[REDIS_VALUES] from Redis: {e}")
+            return []
 
     async def increment(self, key: str, amount: int = 1):
         try:

@@ -8,6 +8,7 @@ default_data = {
     "admins": [],
     "scrapper_page_sleep_sec": 60 * 5,
     "scrapper_more_posts_clicks_count": 5,
+    "x_channels_min_rating": 0,
 }
 filename = "settings.json"
 
@@ -79,6 +80,13 @@ class Settings:
 
     def get_scrapper_more_posts_clicks_count(self) -> int:
         return self.settings["scrapper_more_posts_clicks_count"]
+
+    def get_x_channels_min_rating(self) -> int:
+        return self.settings.get("x_channels_min_rating", 0)
+
+    def set_x_channels_min_rating(self, rating: int) -> None:
+        self.settings["x_channels_min_rating"] = rating
+        self._save_settings()
 
 
 settings = Settings()
