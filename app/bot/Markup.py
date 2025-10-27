@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from app.bot.callback_data import chats_cb, tg_parser_cb, x_parser_cb
+from app.bot.callback_data import chats_cb, tg_parser_cb, x_parser_cb, x_channels_cb
 
 
 class Markup:
@@ -15,6 +15,7 @@ class Markup:
 
         markup.row(
             InlineKeyboardButton(text="💬 Чаты", callback_data=chats_cb),
+            InlineKeyboardButton(text="🔗 X каналы", callback_data=x_channels_cb),
         )
 
         return markup.as_markup()

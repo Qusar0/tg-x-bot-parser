@@ -12,17 +12,18 @@ from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
 from app.database.repo.Word import WordRepo
+from app.database.repo.XChannel import XChannelRepo
 from app.enums import WordType
 from app.settings import settings
 from app.bot.Manager import BotManager
 from app.database.models.Word import Word
 from app.helpers import (
     preprocess_text,
-    is_word_match,
     is_duplicate,
     get_fetched_post_ids,
     add_x_link,
 )
+from app.userbot.filters.is_word_match import is_word_match
 from app.queue import queue
 
 with open("x_cookies.txt") as file:
@@ -82,11 +83,23 @@ class XScrapper:
         try:
             keywords = await WordRepo.get_all(WordType.x_keyword)
             stopwords = await WordRepo.get_all(WordType.x_stopword)
-            channels = ["https://x.com/SpaceX"]
+            min_rating = settings.get_x_channels_min_rating()
+            channels_data = await XChannelRepo.get_by_rating_greater_than(min_rating - 1)
+            
             if not keywords:
                 logger.info("Ключевые слова отсутствуют.")
                 await asyncio.sleep(10)
                 return
+            
+            if not channels_data:
+                logger.info(f"X каналы с рейтингом >= {min_rating} отсутствуют.")
+                await asyncio.sleep(10)
+                return
+
+            # Создаем словарь для быстрого поиска канала по URL
+            channels_dict = {channel.url: channel for channel in channels_data}
+            channels = [channel.url for channel in channels_data]
+            logger.info(f"Найдено {len(channels)} X каналов для мониторинга: {channels}")
 
             for idx, channel_url in enumerate(channels, start=1):
                 try:
@@ -96,7 +109,8 @@ class XScrapper:
                         await self.load_search_page()
 
                     await self.load_search_channel(channel_url)
-                    await self.parse_posts(stopwords, keywords)
+                    current_channel = channels_dict[channel_url]
+                    await self.parse_posts(stopwords, keywords, current_channel)
 
                 finally:
                     await asyncio.sleep(10)
@@ -105,7 +119,7 @@ class XScrapper:
             logger.error(ex)
             traceback.print_exc()
 
-    async def parse_posts(self, stopwords: list[Word], keywords: list[Word]):
+    async def parse_posts(self, stopwords: list[Word], keywords: list[Word], current_channel=None):
         """Поиск постов, сбор информации по определенному чату"""
         FETCHED_CARDS = await get_fetched_post_ids()
         FETCHED_CARDS = []
@@ -139,7 +153,7 @@ class XScrapper:
                 if a_tag:
                     link = a_tag.get("href")
                     id = link.split("/")[-1]
-                logger.info(f"id = {id}")
+                logger.info(f"Tweet ID = {id}, Link = {link}")
 
                 if id in FETCHED_CARDS:
                     logger.info(f"id: {id} alrady in FETCHED_CARDS")
@@ -174,10 +188,14 @@ class XScrapper:
 
                 # Парс текста
                 tweet_div = card.find("div", {"data-testid": "tweetText"})
-
-                # if tweet_div:
-                #     tweet_text = tweet_div.get_text(separator=" ", strip=True)
-                #     print(tweet_text)
+                
+                if tweet_div:
+                    tweet_text = tweet_div.get_text(separator=" ", strip=True)
+                    logger.info(f"Tweet text: {tweet_text[:100]}...")
+                else:
+                    tweet_text = ""
+                    logger.warning("Не найден текст твита")
+                
                 tweet_div = str(tweet_div)
 
                 photo_divs = card.find_all("div", {"data-testid": "tweetPhoto"})
@@ -193,16 +211,18 @@ class XScrapper:
 
                         chat_id = keyword.central_chat_id
 
-                        if is_word_match(tweet_div, stopwords):
+                        matched_stopwords = await is_word_match(tweet_div, WordType.x_stopword)
+                        if matched_stopwords:
                             logger.info(f"Нашли стоп-слова в сообщении: {id}")
                             continue
 
-                        if await is_duplicate(id, tweet_div):
+                        if await is_duplicate(id, tweet_text):
                             logger.info(f"Сообщение дубликат: {id}")
                             continue
 
                         processed_text = await preprocess_text(tweet_div, keyword, platform="x")
-                        processed_text = await add_x_link(processed_text, link)
+                        channel_rating = current_channel.rating if current_channel else 0
+                        processed_text = await add_x_link(processed_text, link, channel_rating)
                         if len(imgs) > 1:
                             await queue.call(
                                 (BotManager.send_media_group, chat_id, imgs, processed_text)
