@@ -1,13 +1,19 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from app.bot.callback_data import back_menu_cb, WordMenuCb
+from app.bot.callback_data import back_menu_cb, WordMenuCb, ChangeSettingsCb
 from app.enums import WordType
+from app.settings import settings
 
 
 class Markup:
     @staticmethod
-    def open_menu() -> InlineKeyboardMarkup:
+    async def open_menu() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
+
+        try:
+            enabled = bool(settings.get_source_x())
+        except Exception:
+            enabled = True
 
         markup.row(
             InlineKeyboardButton(
@@ -23,6 +29,15 @@ class Markup:
             InlineKeyboardButton(
                 text="🔍 Фильтр-слова X", 
                 callback_data=WordMenuCb(word_type=WordType.x_filter_word).pack()
+            ),
+        )
+
+        circle = "🟢" if enabled else "🔴"
+        toggle_cb = ChangeSettingsCb(field="source_x", value=not enabled).pack()
+        markup.row(
+            InlineKeyboardButton(
+                text=f"Указание источника: {circle}",
+                callback_data=toggle_cb,
             ),
         )
 

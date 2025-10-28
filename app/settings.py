@@ -9,6 +9,8 @@ default_data = {
     "scrapper_page_sleep_sec": 60 * 5,
     "scrapper_more_posts_clicks_count": 5,
     "x_channels_min_rating": 0,
+    "source_tg": True,
+    "source_x": True,
 }
 filename = "settings.json"
 
@@ -86,6 +88,20 @@ class Settings:
 
     def set_x_channels_min_rating(self, rating: int) -> None:
         self.settings["x_channels_min_rating"] = rating
+        self._save_settings()
+
+    def get_source_tg(self) -> bool:
+        return self.settings.get("source_tg", True)
+
+    def set_source_tg(self, value: bool) -> None:
+        self.settings["source_tg"] = bool(value)
+        self._save_settings()
+
+    def get_source_x(self) -> bool:
+        return self.settings.get("source_x", True)
+
+    def set_source_x(self, value: bool) -> None:
+        self.settings["source_x"] = bool(value)
         self._save_settings()
 
 

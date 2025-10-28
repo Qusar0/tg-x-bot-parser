@@ -1,13 +1,20 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from app.bot.callback_data import back_menu_cb, WordMenuCb
+from app.bot.callback_data import back_menu_cb, WordMenuCb, ChangeSettingsCb
 from app.enums import WordType
+from app.settings import settings
 
 
 class Markup:
     @staticmethod
-    def open_menu() -> InlineKeyboardMarkup:
+    async def open_menu() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
+
+        
+        try:
+            enabled = bool(settings.get_source_tg())
+        except Exception:
+            enabled = True
 
         markup.row(
             InlineKeyboardButton(
@@ -23,6 +30,22 @@ class Markup:
             InlineKeyboardButton(
                 text="🔍 Фильтр-слова TG", 
                 callback_data=WordMenuCb(word_type=WordType.tg_filter_word).pack()
+            ),
+        )
+        # TODO: Добавить зеленый кружочек и его смену на красный, то есть сделать возможным переключение указания источника"
+        # TODO: Написать каллбек функцию, чтоб она скажем отключала указания источников в сообщениях 
+        # TODO: (надо сначала найти в какой момент отправляется сообщение с указанием источника, какая кнопка нажимается), 
+        # TODO: пересылаемых в чаты, и подключить ее
+        # TODO: в два места - тут и в x_parser
+        # Кнопка переключения указания источника: зеленый кружок = включено, красный = выключено
+        circle = "🟢" if enabled else "🔴"
+        # Используем ChangeSettingsCb для переключения
+        toggle_cb = ChangeSettingsCb(field="source_tg", value=not enabled).pack()
+
+        markup.row(
+            InlineKeyboardButton(
+                text=f"Указание источника: {circle}",
+                callback_data=toggle_cb,
             ),
         )
 
