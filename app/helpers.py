@@ -141,13 +141,10 @@ async def add_x_link(text: str, link: str, channel_rating: int = 0):
     soup.append("\n")
     soup.append(source_link)
 
-    # Проверяем глобальную настройку: нужно ли добавлять источник для X
     try:
-        
         if not settings.get_source_x():
             return text
     except Exception:
-        # Если не удалось получить настройку — продолжаем и добавляем источник
         pass
 
     return str(soup)
@@ -168,13 +165,10 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
         if pattern in text_lower:
             return text
 
-    # Проверяем глобальную настройку: нужно ли добавлять источник для Telegram
     try:
-        from app.settings import settings
         if not settings.get_source_tg():
             return text
     except Exception:
-        # Если не удалось получить настройку — продолжаем и добавляем источник
         pass
 
     rating = 0

@@ -7,10 +7,9 @@ from app.settings import settings
 
 class Markup:
     @staticmethod
-    async def open_menu() -> InlineKeyboardMarkup:
+    def open_menu() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
-        
         try:
             enabled = bool(settings.get_source_tg())
         except Exception:
@@ -39,7 +38,6 @@ class Markup:
         # TODO: в два места - тут и в x_parser
         # Кнопка переключения указания источника: зеленый кружок = включено, красный = выключено
         circle = "🟢" if enabled else "🔴"
-        # Используем ChangeSettingsCb для переключения
         toggle_cb = ChangeSettingsCb(field="source_tg", value=not enabled).pack()
 
         markup.row(

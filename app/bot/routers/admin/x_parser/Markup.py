@@ -7,7 +7,7 @@ from app.settings import settings
 
 class Markup:
     @staticmethod
-    async def open_menu() -> InlineKeyboardMarkup:
+    def open_menu() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
         try:

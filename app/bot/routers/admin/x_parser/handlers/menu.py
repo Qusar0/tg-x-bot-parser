@@ -12,7 +12,7 @@ async def x_parser_menu(cb: types.CallbackQuery, state: FSMContext):
     await cb.message.edit_text(
         "<b>🐦 Парсер X (Twitter)</b>\n\n"
         "Управление словами для парсинга X",
-        reply_markup=await Markup.open_menu(),
+        reply_markup=Markup.open_menu(),
     )
 
 
