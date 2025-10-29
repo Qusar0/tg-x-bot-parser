@@ -10,6 +10,7 @@ async def main():
     from app.xscrapper import xscrapper
     from app.database.redis import redis_store
     from app.database.connection import init_connection, close_connection
+    from app.cleanup_scheduler import cleanup_scheduler
 
     await init_connection()
     await redis_store.connect()
@@ -22,6 +23,9 @@ async def main():
             from app.bot import run_bot
             from app.userbot.userbot_manager import userbot_manager
 
+            # Запускаем планировщик очистки для бота
+            await cleanup_scheduler.start()
+
             await asyncio.gather(
                 *[
                     userbot_manager.start(),
@@ -33,6 +37,8 @@ async def main():
         logger.error(f"Глобальная ошибка: {ex}")
         print(traceback.print_exc())
     finally:
+        # Останавливаем планировщик очистки
+        await cleanup_scheduler.stop()
         await close_connection()
         await redis_store.disconnect()
 
