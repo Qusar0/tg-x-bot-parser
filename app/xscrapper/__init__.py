@@ -58,11 +58,11 @@ class XScrapper:
         self.browser = await self.p.chromium.launch(
             headless=False,
             args=browser_args,
-            # proxy={
-            #     "server": "http://130.254.41.43:6663",
-            #     "username": "user239081",
-            #     "password": "6iogl9"
-            # }
+            proxy={
+                "server": "http://130.254.41.43:6663",
+                "username": "user239081",
+                "password": "6iogl9"
+            }
         )
         self.context = await self.browser.new_context()
 

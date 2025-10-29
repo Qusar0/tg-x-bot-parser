@@ -16,18 +16,32 @@ async def is_duplicate(id: str, original_text: str) -> bool:
     from loguru import logger
 
     try:
-        texts = await redis_store.values(POST_KEY.format(id="*"))
-        logger.info(f"Проверяем дубликаты для ID: {id}, текстов в Redis: {len(texts) if texts else 0}")
+        # Сначала проверяем, есть ли уже такой текст в Redis
+        # Используем более эффективный подход - проверяем только недавние посты
+        recent_keys = await redis_store.keys(POST_KEY.format(id="*"))
         
-        # Проверяем, что texts не None и не пустой
-        if texts:
-            for i, text in enumerate(texts):
-                if text and original_text == text:
-                    logger.info(f"Найден дубликат! ID: {id}, совпадение с текстом #{i}")
-                    return True
+        if recent_keys:
+            # Ограничиваем количество проверяемых ключей для производительности
+            max_check_keys = 100
+            if len(recent_keys) > max_check_keys:
+                # Берем только последние ключи (предполагаем, что они отсортированы)
+                recent_keys = recent_keys[-max_check_keys:]
+            
+            # Получаем значения только для выбранных ключей
+            texts = await redis_store.redis.mget(recent_keys) if recent_keys else []
+            
+            logger.info(f"Проверяем дубликаты для ID: {id}, проверяем {len(texts)} из {len(await redis_store.keys(POST_KEY.format(id='*')))} текстов в Redis")
+            
+            # Проверяем, что texts не None и не пустой
+            if texts:
+                for i, text in enumerate(texts):
+                    if text and original_text == text:
+                        logger.info(f"Найден дубликат! ID: {id}, совпадение с текстом #{i}")
+                        return True
 
-        await redis_store.set_value_ex(POST_KEY.format(id=id), original_text, 60 * 60 * 24)
-        logger.info(f"Сохраняем новый пост в Redis: {id}")
+        # Сохраняем новый пост с TTL 2 часа
+        await redis_store.set_value_ex(POST_KEY.format(id=id), original_text, 60 * 60 * 2)
+        logger.info(f"Сохраняем новый пост в Redis: {id} (TTL: 2 часа)")
         return False
     except Exception as e:
         # Если Redis недоступен, логируем ошибку и продолжаем без проверки дубликатов
@@ -38,6 +52,28 @@ async def is_duplicate(id: str, original_text: str) -> bool:
 async def get_fetched_post_ids():
     keys: list[str] = await redis_store.keys(POST_KEY.format(id="*"))
     return [key.split(":")[1] for key in keys]
+
+
+async def cleanup_old_redis_data():
+    """Очищает старые данные из Redis для предотвращения переполнения памяти"""
+    from loguru import logger
+    
+    try:
+        # Очищаем старые посты (старше 2 часов)
+        deleted_posts = await redis_store.cleanup_old_posts(max_age_hours=2)
+        
+        # Получаем информацию об использовании памяти
+        memory_info = await redis_store.get_memory_usage()
+        
+        logger.info(f"[CLEANUP] Очистка Redis завершена:")
+        logger.info(f"[CLEANUP] - Удалено постов: {deleted_posts}")
+        logger.info(f"[CLEANUP] - Использовано памяти: {memory_info.get('used_memory_human', 'N/A')}")
+        logger.info(f"[CLEANUP] - Количество ключей: {memory_info.get('keys_count', 'N/A')}")
+        
+        return deleted_posts
+    except Exception as e:
+        logger.error(f"[CLEANUP] Ошибка при очистке Redis: {e}")
+        return 0
 
 
 def is_word_match(text: str, words: list[Word]) -> bool:
@@ -129,23 +165,25 @@ async def add_x_link(text: str, link: str, channel_rating: int = 0):
     account_name = normalized.split('/')[0]
     link = f"https://x.com/{normalized}"
     
-    # Добавляем рейтинг
+    # Добавляем рейтинг (всегда)
     rating_text = f"⭐{channel_rating}" if channel_rating > 0 else "❌"
     rating_element = soup.new_string(f"Рейтинг: {rating_text}\n")
-    
-    source_link = soup.new_tag('a', href=link)
-    source_link.string = f"🔗 Источник: {account_name}"
     
     soup.append("\n\n")
     soup.append(rating_element)
     soup.append("\n")
-    soup.append(source_link)
-
+    
+    # Добавляем источник только если включена настройка
     try:
-        if not settings.get_source_x():
-            return text
+        if settings.get_source_x():
+            source_link = soup.new_tag('a', href=link)
+            source_link.string = f"🔗 Источник: {account_name}"
+            soup.append(source_link)
     except Exception:
-        pass
+        # Если настройка недоступна, добавляем источник по умолчанию
+        source_link = soup.new_tag('a', href=link)
+        source_link.string = f"🔗 Источник: {account_name}"
+        soup.append(source_link)
 
     return str(soup)
 
@@ -165,12 +203,7 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
         if pattern in text_lower:
             return text
 
-    try:
-        if not settings.get_source_tg():
-            return text
-    except Exception:
-        pass
-
+    # Получаем рейтинг (всегда)
     rating = 0
     if chat_id:
         try:
@@ -181,19 +214,25 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
         except Exception:
             pass
 
-    source_link = soup.new_tag('a', href=chat_link)
-
-    # Добавляем рейтинг
+    # Добавляем рейтинг (всегда)
     rating_text = f"⭐{rating}" if rating > 0 else "❌"
     rating_element = soup.new_string(f"Рейтинг: {rating_text}\n")
-
-    # rating_text = f" (⭐{rating})"
-    source_link.string = f"🔗 Источник: {chat_title}"
 
     soup.append("\n\n")
     soup.append(rating_element)
     soup.append("\n")
-    soup.append(source_link)
+
+    # Добавляем источник только если включена настройка
+    try:
+        if settings.get_source_tg():
+            source_link = soup.new_tag('a', href=chat_link)
+            source_link.string = f"🔗 Источник: {chat_title}"
+            soup.append(source_link)
+    except Exception:
+        # Если настройка недоступна, добавляем источник по умолчанию
+        source_link = soup.new_tag('a', href=chat_link)
+        source_link.string = f"🔗 Источник: {chat_title}"
+        soup.append(source_link)
 
     return str(soup)
 

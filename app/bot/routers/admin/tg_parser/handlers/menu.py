@@ -30,8 +30,7 @@ async def toggle_source_setting(cb: types.CallbackQuery, callback_data: ChangeSe
         pass
 
     try:
-        await cb.message.edit_reply_markup(reply_markup=await Markup.open_menu())
-    except Exception:
-        pass
-
-    # await cb.answer(text=("Указание источника включено" if new_value else "Указание источника отключено"))
+        await cb.message.edit_reply_markup(reply_markup=Markup.open_menu())
+        await cb.answer(text=("Указание источника включено" if new_value else "Указание источника отключено"))
+    except Exception as e:
+        await cb.answer(text="Ошибка обновления панели")

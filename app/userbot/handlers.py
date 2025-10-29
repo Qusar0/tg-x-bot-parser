@@ -12,6 +12,7 @@ class Handlers:
     # Кэш для отслеживания обработанных сообщений в рамках сессии
     _processed_messages = set()
     _instance_id = None
+    _max_cache_size = 5000  # Уменьшаем максимальный размер кэша
     
     @classmethod
     def get_instance_id(cls):
@@ -44,9 +45,14 @@ class Handlers:
             
             logger.info(f"[{instance_id}] Добавляем сообщение в кэш: {message_key}")
             Handlers._processed_messages.add(message_key)
-            if len(Handlers._processed_messages) > 10000:
-                logger.info(f"[{instance_id}] Очищаем старые записи из кэша")
-                Handlers._processed_messages = set(list(Handlers._processed_messages)[5000:])
+            
+            # Более частое и эффективное очищение кэша
+            if len(Handlers._processed_messages) > Handlers._max_cache_size:
+                logger.info(f"[{instance_id}] Очищаем старые записи из кэша (было: {len(Handlers._processed_messages)})")
+                # Оставляем только половину от максимального размера
+                keep_size = Handlers._max_cache_size // 2
+                Handlers._processed_messages = set(list(Handlers._processed_messages)[-keep_size:])
+                logger.info(f"[{instance_id}] Кэш очищен, осталось: {len(Handlers._processed_messages)} записей")
 
             candidate = await ChatRepo.get_by_telegram_id(message.chat.id)
             if not candidate:
