@@ -122,7 +122,6 @@ class XScrapper:
     async def parse_posts(self, stopwords: list[Word], keywords: list[Word], current_channel=None):
         """Поиск постов, сбор информации по определенному чату"""
         FETCHED_CARDS = await get_fetched_post_ids()
-        FETCHED_CARDS = []
         logger.info(f"FETCHED_CARDS: {FETCHED_CARDS}")
 
         #  Страница грузится на профиль где не сразу видно посты, флаг нужен для первого скрола, когда ничего не нашло
@@ -249,11 +248,17 @@ class XScrapper:
     async def load_search_page(self):
         """Грузим поисковую страницу"""
         logger.info("Грузим поисковую страницу")
+        # Закрываем предыдущую страницу, если она существует, чтобы не накапливать страницы в памяти
+        try:
+            if self.page is not None:
+                await self.page.close()
+        except Exception:
+            pass
         self.page = await self.context.new_page()
         if not self.is_load_cookie:
             await self._load_cookie()
-
-        time.sleep(2)
+        # Не блокируем событийный цикл
+        await self.page.wait_for_timeout(2000)
 
     async def load_search_channel(self, channel_url: str):
         """Вводим поисковой запрос"""
@@ -283,8 +288,26 @@ class XScrapper:
                     await asyncio.sleep(15)
 
         finally:
-            await self.browser.close()
-            await self.p.stop()
+            try:
+                if self.page is not None:
+                    await self.page.close()
+            except Exception:
+                pass
+            try:
+                if self.context is not None:
+                    await self.context.close()
+            except Exception:
+                pass
+            try:
+                if self.browser is not None:
+                    await self.browser.close()
+            except Exception:
+                pass
+            try:
+                if self.p is not None:
+                    await self.p.stop()
+            except Exception:
+                pass
 
 
 xscrapper = XScrapper()
