@@ -56,7 +56,7 @@ class XScrapper:
         
         # Используем системный Chrome
         self.browser = await self.p.chromium.launch(
-            headless=False,
+            headless=True,
             args=browser_args,
             proxy={
                 "server": "http://130.254.41.43:6663",
