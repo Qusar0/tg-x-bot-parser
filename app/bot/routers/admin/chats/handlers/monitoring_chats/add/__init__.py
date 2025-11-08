@@ -11,6 +11,7 @@ from app.bot.callback_data import (
     chats_load_from_account,
     ChooseChatCb,
     NavigationChatCb,
+    ChatsCentralChooseCb,
 )
 from app.bot.routers.admin.chats.helpers import extract_chat_entities
 from app.bot.routers.admin.chats.Markup import Markup
@@ -46,12 +47,43 @@ async def cancel_action(message: types.Message, state: FSMContext):
     await cancel_add_chat(message, state, False)
 
 
-@admin_router.callback_query(F.data == chats_add_cb)
-async def chats_add_handler(cb: types.CallbackQuery, state: FSMContext):
-    await state.set_state(ChatsState.add)
+@admin_router.callback_query(
+    F.data.in_([chats_add_cb, chats_add_excel_cb, chats_load_from_account])
+)
+async def choose_target_handler(cb: types.CallbackQuery, state: FSMContext):
+    add_type = cb.data
+    await state.update_data(add_type=add_type) 
+
+    await state.set_state(ChatsState.choose_central_chat)
     await cb.message.edit_reply_markup(reply_markup=None)
     await cb.message.answer(
         """
+ 🎯 <b>Сначала выберите чат, куда будут приходить уведомления:</b>
+ """,
+        reply_markup= await Markup.choose_central_chats(),
+    )
+
+@admin_router.callback_query(ChatsCentralChooseCb.filter(), ChatsState.choose_central_chat)
+async def on_target_chosen(cb: types.CallbackQuery, callback_data: ChatsCentralChooseCb, state: FSMContext):
+    await state.update_data(target_chat_id=callback_data.chat_id)
+    
+    data = await state.get_data()
+    add_type = data.get('add_type')
+    
+    if add_type == chats_add_cb:
+        await chats_add_handler(cb, state)
+    elif add_type == chats_add_excel_cb:
+        await original_chats_add_excel_handler(cb, state)
+    elif add_type == chats_load_from_account:
+        await load_chats_from_account(cb, state)
+
+async def chats_add_handler(cb: types.CallbackQuery,  callback_data: ChatsCentralChooseCb, state: FSMContext):
+    await state.set_state(ChatsState.add)
+    await cb.message.edit_reply_markup(reply_markup=None)
+    target_chat_id = callback_data.chat_id
+    await state.update_data(target_chat_id=target_chat_id)
+    await cb.message.answer(
+        f"""
 ✏️ <b>Пожалуйста, отправьте ссылки на чаты, за которыми будем следить:</b>
 
 <i>💡 Допустимые форматы:</i>
@@ -75,13 +107,12 @@ async def chats_add_scene(message: types.Message, state: FSMContext):
     if not chat_entities:
         await message.answer("<b>⚠️ Пожалуйста, введите корректные чаты</b>", reply_markup=Markup.cancel_action())
         return
-
+    
     global_state.is_adding = True
     global_state.adding_async_task = asyncio.ensure_future(start_subscribe(message, state, chat_entities))
     await global_state.adding_async_task
 
 
-@admin_router.callback_query(F.data == chats_load_from_account)
 async def load_chats_from_account(cb: types.CallbackQuery, state: FSMContext):
     global IS_LOADING_CHATS
     global CHATS
@@ -170,8 +201,12 @@ async def navigate_buttons(cb: types.CallbackQuery, callback_data: NavigationCha
 
 
 @admin_router.callback_query(F.data == chats_add_loaded_chat_cb)
-async def save_loaded_chats(cb: types.CallbackQuery):
-    added_chats = list(filter(lambda chat: chat.is_choose, CHATS))
+async def save_loaded_chats(cb: types.CallbackQuery, state: FSMContext):
+    added_chats = list(filter(lambda chat: chat.is_choose, CHATS))    
+
+    data = await state.get_data()
+    central_chat_id = data.get('target_chat_id')
+
     chats = []
     if not added_chats:
         await cb.answer("⚠️ Пожалуйста, выберите хоть один чат", show_alert=True)
@@ -180,9 +215,9 @@ async def save_loaded_chats(cb: types.CallbackQuery):
     for chat in added_chats:
         try:
             if chat.username:
-                chat = await ChatRepo.add(chat.id, chat.title, f"@{chat.username}")
+                chat = await ChatRepo.add(chat.id, chat.title, f"@{chat.username}", central_chat_id=central_chat_id)
             else:
-                chat = await ChatRepo.add(chat.id, chat.title)
+                chat = await ChatRepo.add(chat.id, chat.title, central_chat_id=central_chat_id)
         except Exception:
             chat = await ChatRepo.get_by_telegram_id(chat.id)
         chats.append(chat)
@@ -194,7 +229,6 @@ async def save_loaded_chats(cb: types.CallbackQuery):
     )
 
 
-@admin_router.callback_query(F.data == chats_add_excel_cb)
 async def chats_add_excel_handler(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(ChatsState.add_excel)
     await cb.message.edit_reply_markup(reply_markup=None)
