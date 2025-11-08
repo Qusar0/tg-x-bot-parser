@@ -18,19 +18,40 @@ async def tg_parser_menu(cb: types.CallbackQuery, state: FSMContext):
 
 @admin_router.callback_query(ChangeSettingsCb.filter())
 async def toggle_source_setting(cb: types.CallbackQuery, callback_data: ChangeSettingsCb, state: FSMContext):
-    """Toggle whether to include source in messages sent by the bot for Telegram platform."""
-    if callback_data.field != "source_tg":
+    """Toggle source setting for both TG and X"""
+    
+    # Для Telegram
+    if callback_data.field == "source_tg":
+        new_value = bool(callback_data.value)
+        try:
+            settings.set_source_tg(new_value)
+        except Exception:
+            pass
+        
+        # Импортируем TG Markup
+        from app.bot.routers.admin.tg_parser.Markup import Markup as TgMarkup
+        try:
+            await cb.message.edit_reply_markup(reply_markup=TgMarkup.open_menu())
+            await cb.answer(text=("Указание источника TG включено" if new_value else "Указание источника TG отключено"))
+        except Exception:
+            await cb.answer(text="Ошибка обновления панели TG")
+    
+    # Для X (Twitter)
+    elif callback_data.field == "source_x":
+        new_value = bool(callback_data.value)
+        try:
+            settings.set_source_x(new_value)
+        except Exception:
+            pass
+        
+        # Импортируем X Markup
+        from app.bot.routers.admin.x_parser.Markup import Markup as XMarkup
+        try:
+            await cb.message.edit_reply_markup(reply_markup=XMarkup.open_menu())
+            await cb.answer(text=("Указание источника X включено" if new_value else "Указание источника X отключено"))
+        except Exception:
+            await cb.answer(text="Ошибка обновления панели X")
+    
+    # Неизвестное поле
+    else:
         await cb.answer()
-        return
-
-    new_value = bool(callback_data.value)
-    try:
-        settings.set_source_tg(new_value)
-    except Exception:
-        pass
-
-    try:
-        await cb.message.edit_reply_markup(reply_markup=Markup.open_menu())
-        await cb.answer(text=("Указание источника включено" if new_value else "Указание источника отключено"))
-    except Exception as e:
-        await cb.answer(text="Ошибка обновления панели")
