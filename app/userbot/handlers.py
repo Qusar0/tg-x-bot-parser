@@ -90,8 +90,15 @@ class Handlers:
                 central_chats[keyword.central_chat_id].append(keyword)
             
             logger.info(f"Найдено {len(central_chats)} центральных чатов для отправки")
+            # Получить из бд central_chat_id по monitoring_chats(message.chat.id))
+            central_chat_for_monitoring = await ChatRepo.get_central_chats_by_monitoring(message.chat.id)
             
             for central_chat_id, chat_keywords in central_chats.items():
+                # Если central_chat_monitoring заполнено в бд
+                if central_chat_for_monitoring:
+                    # Сравнить central_chat_id с central_chat_id_monitoring
+                    if not await ChatRepo.is_id_contains(central_chat_id, central_chat_for_monitoring):
+                        continue
                 logger.info(f"Отправляем сообщение в центральный чат {central_chat_id} (найдено {len(chat_keywords)} ключевых слов)")
                 keyword = chat_keywords[0]
                 

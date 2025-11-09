@@ -82,3 +82,16 @@ class ChatRepo:
             await chat.save()
             return True
         return False
+    
+    @staticmethod
+    async def get_central_chats_by_monitoring(monitoring_chat_id: int) -> list[Chat] | None:
+        """Поиск центральных чатов для чатов для мониторинга"""
+        chats = await Chat.filter(telegram_id=monitoring_chat_id).all()
+        return chats
+    
+    @staticmethod
+    def is_id_contains(id: int, chats: list[Chat]):
+        for chat in chats:
+            if chat.central_chat_id == id:
+                return True
+        return False
