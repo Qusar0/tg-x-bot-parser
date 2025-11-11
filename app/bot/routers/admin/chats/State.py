@@ -9,3 +9,4 @@ class ChatsState(StatesGroup):
     add_excel = State()
 
     set_winrate= State()
+    set_x_winrate= State()

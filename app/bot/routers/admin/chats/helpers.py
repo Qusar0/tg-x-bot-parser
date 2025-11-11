@@ -41,30 +41,23 @@ def extract_chat_entities(text: str) -> list[str]:
 import re
 
 def extract_first_float(text):
-    """
-    Извлекает первое число (целое или дробное) из строки с учетом:
-    - целых чисел
-    - дробных чисел с точками и запятыми
-    - только 1-2 знака после запятой/точки для дробных чисел
-    - числа до 100
-    """
-    pattern = r'\b\d+\b|\b\d+[.,]\d{1,2}\b'
+    pattern = r'\b\d+(?:[.,]\d{1,2})?\b|(?<!\d)[.,]\d{1,2}\b'
     
-    numbers = re.findall(pattern, text)
+    matches = re.findall(pattern, text)
     
-    if not numbers:
+    if not matches:
         return False
     
-    for num_str in numbers:
+    for match in matches:
         try:
-            if ',' in num_str or '.' in num_str:
-                normalized_num = num_str.replace(',', '.')
-                if len(normalized_num.split('.')[1]) > 2:
-                    continue
+            # Обрабатываем случаи типа ".5" или ",5"
+            if match.startswith('.') or match.startswith(','):
+                normalized = '0' + match.replace(',', '.')
             else:
-                normalized_num = num_str
+                normalized = match.replace(',', '.')
             
-            num = float(normalized_num)
+            num = float(normalized)
+            
             if num < 100:
                 return num
         except ValueError:

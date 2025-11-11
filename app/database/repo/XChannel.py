@@ -57,4 +57,14 @@ class XChannelRepo:
             await channel.save()
             return True
         return False
+    
+    @staticmethod
+    async def update_winrate(channel_id: int, winrate: float) -> bool:
+        """Обновить winrate канала"""
+        channel = await XChannel.filter(id=channel_id).first()
+        if channel:
+            channel.winrate = winrate
+            await channel.save()
+            return True
+        return False
 

@@ -132,4 +132,22 @@ class Markup:
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
 
         return markup.as_markup()
+    
+    @staticmethod
+    async def channel_list_for_winrate(channels: list, back_callback: str = x_channels_rating_cb) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+
+        for channel in channels:
+            winrate_text = f"{channel.winrate} ⭐" if channel.winrate > 0 else "❌"
+            markup.row(
+                InlineKeyboardButton(
+                    text=f"{winrate_text} {channel.title}",
+                    callback_data=f"winratex_channel_{channel.id}"
+                )
+            )
+
+        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
+
+        return markup.as_markup()
+
 

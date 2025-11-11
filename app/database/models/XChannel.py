@@ -8,6 +8,7 @@ class XChannel(Model):
     url = fields.CharField(max_length=500)
     rating = fields.IntField(default=0)
     created_at = fields.DatetimeField(auto_now_add=True)
+    winrate = fields.FloatField(default=0)
 
     @property
     def formatted_created_at(self) -> str:
