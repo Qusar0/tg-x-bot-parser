@@ -7,8 +7,10 @@ from app.bot.callback_data import (
     chats_re_evaluation_cb,
     chats_without_rating_cb,
     chats_change_rating_cb,
+    chats_choose_winrate,
     ChatRatingCb,
 )
+from app.bot.routers.admin.chats.State import ChatsState
 
 
 @admin_router.callback_query(F.data == chats_change_rating_cb)
@@ -81,6 +83,8 @@ async def choose_rating_for_chat(cb: types.CallbackQuery, state: FSMContext):
     )
 
 
+
+
 @admin_router.callback_query(ChatRatingCb.filter())
 async def handle_rating_selection(cb: types.CallbackQuery, callback_data: ChatRatingCb, state: FSMContext):
     await state.set_state(None)
@@ -98,6 +102,7 @@ async def handle_rating_selection(cb: types.CallbackQuery, callback_data: ChatRa
             f"<b>✅ Рейтинг успешно обновлён!</b>\n\n"
             f"<b>Чат:</b> {chat.title}\n"
             f"<b>Новый рейтинг:</b> {rating} ⭐",
+            
             reply_markup=Markup.rating_chats_menu()
         )
     else:

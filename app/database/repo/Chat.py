@@ -49,6 +49,15 @@ class ChatRepo:
             await chat.save()
             return True
         return False
+    
+    @staticmethod
+    async def update_winrate(telegram_id: int, winrate: float) -> bool:
+        chat = await Chat.filter(telegram_id=telegram_id).first()
+        if chat:
+            chat.winrate = winrate
+            await chat.save()
+            return True
+        return False
 
     @staticmethod
     async def get_by_title(title: str) -> Chat | None:

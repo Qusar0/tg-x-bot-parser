@@ -36,3 +36,38 @@ def extract_chat_entities(text: str) -> list[str]:
                     usernames.add("@" + username.lower())
 
     return list(usernames)
+
+
+import re
+
+def extract_first_float(text):
+    """
+    Извлекает первое число (целое или дробное) из строки с учетом:
+    - целых чисел
+    - дробных чисел с точками и запятыми
+    - только 1-2 знака после запятой/точки для дробных чисел
+    - числа до 100
+    """
+    pattern = r'\b\d+\b|\b\d+[.,]\d{1,2}\b'
+    
+    numbers = re.findall(pattern, text)
+    
+    if not numbers:
+        return False
+    
+    for num_str in numbers:
+        try:
+            if ',' in num_str or '.' in num_str:
+                normalized_num = num_str.replace(',', '.')
+                if len(normalized_num.split('.')[1]) > 2:
+                    continue
+            else:
+                normalized_num = num_str
+            
+            num = float(normalized_num)
+            if num < 100:
+                return num
+        except ValueError:
+            continue
+    
+    return False

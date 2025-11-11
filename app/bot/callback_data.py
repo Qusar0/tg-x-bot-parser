@@ -21,6 +21,7 @@ x_channels_uploading_cb = "x-channels-excel"
 x_channels_rating_cb = "x-channels-rating"
 x_channels_without_rating_cb = "x-channels-without-rating"
 x_channels_re_evaluation_cb = "x-channels-re-evaluation"
+x_channels_choose_winrate = "x_channels_choose_winrate"
 
 # Чаты
 chats_cb = "chats"
@@ -32,6 +33,7 @@ chats_choose_add_cb = "choose-add-chats"
 chats_add_excel_cb = "add-chats-excel"
 chats_remove_cb = "remove-chats"
 chats_uploading_cb = "chats-excel"
+chats_choose_winrate = "chats_choose_winrate"
 
 chats_central_add_cb = "add-central-chats"
 chats_central_remove_cb = "remove-central-chats"

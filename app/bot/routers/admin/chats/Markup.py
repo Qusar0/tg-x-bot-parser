@@ -246,3 +246,21 @@ class Markup:
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
 
         return markup.as_markup()
+    
+    @staticmethod
+    def chat_list_for_winrate(chats: list, back_callback: str = chats_change_rating_cb) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+
+        for chat in chats:
+            winrate_text = f"{chat.winrate} ⭐" if chat.winrate > 0 else "❌"
+            markup.row(
+                InlineKeyboardButton(
+                    text=f"{winrate_text} {chat.title}",
+                    callback_data=f"winrate_{chat.telegram_id}"
+                )
+            )
+
+        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
+
+        return markup.as_markup()
+
