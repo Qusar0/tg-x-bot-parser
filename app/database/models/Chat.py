@@ -15,6 +15,7 @@ class Chat(Model):
 
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now_add=True)
+    central_chat_id = fields.BigIntField(null=True)
 
     @property
     def link(self) -> str:
@@ -30,3 +31,5 @@ class Chat(Model):
     @property
     def formatted_created_at(self) -> str:
         return self.created_at.strftime("%d.%m.%y %H:%M")
+        
+    
