@@ -207,8 +207,20 @@ class XScrapper:
 
                 for keyword in keywords:
                     if keyword.title in tweet_div:
-
-                        chat_id = keyword.central_chat_id
+                        # Проверяем соответствие: central_chat_id ключевого слова должен совпадать с central_chat_id X канала
+                        keyword_central_chat_id = keyword.central_chat_id
+                        channel_central_chat_id = current_channel.central_chat_id if current_channel else None
+                        
+                        # Если у X канала не указан central_chat_id, пропускаем
+                        if not channel_central_chat_id:
+                            logger.info(f"У X канала {current_channel.url if current_channel else 'unknown'} не указан central_chat_id, пропускаем")
+                            continue
+                        
+                        if keyword_central_chat_id != channel_central_chat_id:
+                            logger.info(f"Центральный чат {keyword_central_chat_id} из ключевого слова не совпадает с central_chat_id X канала {channel_central_chat_id}, пропускаем")
+                            continue
+                        
+                        chat_id = keyword_central_chat_id
 
                         matched_stopwords = await is_word_match(tweet_div, WordType.x_stopword)
                         if matched_stopwords:

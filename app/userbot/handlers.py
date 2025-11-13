@@ -90,15 +90,35 @@ class Handlers:
                 central_chats[keyword.central_chat_id].append(keyword)
             
             logger.info(f"Найдено {len(central_chats)} центральных чатов для отправки")
-            # Получить из бд central_chat_id по monitoring_chats(message.chat.id))
-            central_chat_for_monitoring = await ChatRepo.get_central_chats_by_monitoring(message.chat.id)
             
-            for central_chat_id, chat_keywords in central_chats.items():
-                # Если central_chat_monitoring заполнено в бд
-                if central_chat_for_monitoring:
-                    # Сравнить central_chat_id с central_chat_id_monitoring
-                    if not await ChatRepo.is_id_contains(central_chat_id, central_chat_for_monitoring):
-                        continue
+            # Получаем central_chat_id мониторинг чата
+            monitoring_chat_central_id = candidate.central_chat_id
+            logger.info(f"Центральный чат мониторинга: {monitoring_chat_central_id}")
+            
+            # Если у мониторинг чата не указан central_chat_id, пропускаем
+            if not monitoring_chat_central_id:
+                logger.info(f"У мониторинг чата {candidate.telegram_id} не указан central_chat_id, пропускаем")
+                return
+            
+            # Проверяем соответствие: central_chat_id ключевого слова должен совпадать с central_chat_id мониторинг чата
+            target_central_chats = {}
+            for central_chat_id, chat_keywords_list in central_chats.items():
+                # Проверяем, что central_chat_id из ключевого слова совпадает с central_chat_id мониторинг чата
+                if central_chat_id != monitoring_chat_central_id:
+                    logger.info(f"Центральный чат {central_chat_id} из ключевого слова не совпадает с central_chat_id мониторинг чата {monitoring_chat_central_id}, пропускаем")
+                    continue
+                
+                # Получаем центральный чат из БД и проверяем, что он существует и является центральным
+                central_chat = await ChatRepo.get_by_telegram_id(central_chat_id)
+                if not central_chat or not central_chat.is_central:
+                    logger.info(f"Центральный чат {central_chat_id} не найден в БД или не является центральным, пропускаем")
+                    continue
+                
+                target_central_chats[central_chat_id] = chat_keywords_list
+            
+            logger.info(f"Используем центральные чаты после проверки соответствия: {list(target_central_chats.keys())}")
+            
+            for central_chat_id, chat_keywords in target_central_chats.items():
                 logger.info(f"Отправляем сообщение в центральный чат {central_chat_id} (найдено {len(chat_keywords)} ключевых слов)")
                 keyword = chat_keywords[0]
                 

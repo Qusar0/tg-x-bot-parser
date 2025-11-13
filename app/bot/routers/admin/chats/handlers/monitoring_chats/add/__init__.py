@@ -73,15 +73,14 @@ async def on_target_chosen(cb: types.CallbackQuery, callback_data: ChatsCentralC
     if add_type == chats_add_cb:
         await chats_add_handler(cb, state)
     elif add_type == chats_add_excel_cb:
-        await original_chats_add_excel_handler(cb, state)
+        await chats_add_excel_handler(cb, state)
     elif add_type == chats_load_from_account:
         await load_chats_from_account(cb, state)
 
-async def chats_add_handler(cb: types.CallbackQuery,  callback_data: ChatsCentralChooseCb, state: FSMContext):
+async def chats_add_handler(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(ChatsState.add)
     await cb.message.edit_reply_markup(reply_markup=None)
-    target_chat_id = callback_data.chat_id
-    await state.update_data(target_chat_id=target_chat_id)
+    # target_chat_id уже сохранен в state в on_target_chosen
     await cb.message.answer(
         f"""
 ✏️ <b>Пожалуйста, отправьте ссылки на чаты, за которыми будем следить:</b>

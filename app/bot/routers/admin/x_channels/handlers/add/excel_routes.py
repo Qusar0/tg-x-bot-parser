@@ -1,5 +1,6 @@
 from aiogram import Router, types
 from aiogram.types import BufferedInputFile
+from aiogram.fsm.context import FSMContext
 from loguru import logger
 
 from app.bot.routers.admin.x_channels.Markup import Markup
@@ -11,7 +12,7 @@ router = Router()
 
 
 @router.callback_query(lambda c: c.data == x_channels_add_excel_cb)
-async def add_x_channels_excel_handler(callback: types.CallbackQuery):
+async def add_x_channels_excel_handler(callback: types.CallbackQuery, state: FSMContext):
     # Отправляем шаблон Excel файла
     template_data = ExcelXChannelParser.create_template_excel()
     
@@ -35,7 +36,7 @@ async def add_x_channels_excel_handler(callback: types.CallbackQuery):
 
 
 @router.message(lambda m: m.document and m.document.file_name.endswith(('.xlsx', '.xls')))
-async def process_x_channels_excel_file(message: types.Message):
+async def process_x_channels_excel_file(message: types.Message, state: FSMContext):
     try:
         # Скачиваем файл
         file = await message.bot.get_file(message.document.file_id)
@@ -75,8 +76,12 @@ async def process_x_channels_excel_file(message: types.Message):
                     logger.info(f"Канал {channel_data['name']} уже существует, пропускаем")
                     continue
                 
+                # Получаем central_chat_id из state
+                data = await state.get_data()
+                central_chat_id = data.get('target_chat_id')
+                
                 # Добавляем канал
-                await XChannelRepo.add(channel_data['name'], channel_data['link'])
+                await XChannelRepo.add(channel_data['name'], channel_data['link'], central_chat_id=central_chat_id)
                 added_count += 1
                 logger.info(f"Добавлен канал: {channel_data['name']} - {channel_data['link']}")
                 
@@ -94,8 +99,10 @@ async def process_x_channels_excel_file(message: types.Message):
         )
         
         await message.answer(result_text)
+        await state.clear()
         
     except Exception as e:
         logger.error(f"Ошибка при обработке Excel файла: {e}")
         await message.answer("❌ Произошла ошибка при обработке файла")
+        await state.clear()
 
