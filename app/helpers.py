@@ -167,7 +167,7 @@ async def add_x_link(text: str, link: str, channel_rating: int = 0):
     
     # Добавляем рейтинг (всегда)
     rating_text = f"⭐{channel_rating}" if channel_rating > 0 else "❌"
-    rating_element = soup.new_string(f"Рейтинг: {rating_text}\n")
+    rating_element = soup.new_string(f"Rating: {rating_text}\n")
     
     soup.append("\n\n")
     soup.append(rating_element)
@@ -216,7 +216,7 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
 
     # Добавляем рейтинг (всегда)
     rating_text = f"⭐{rating}" if rating > 0 else "❌"
-    rating_element = soup.new_string(f"Рейтинг: {rating_text}\n")
+    rating_element = soup.new_string(f"Rating: {rating_text}\n")
 
     soup.append("\n\n")
     soup.append(rating_element)
