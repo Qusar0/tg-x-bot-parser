@@ -221,7 +221,8 @@ class XScrapper:
 
                         processed_text = await preprocess_text(tweet_div, keyword, platform="x")
                         channel_rating = current_channel.rating if current_channel else 0
-                        processed_text = await add_x_link(processed_text, link, channel_rating)
+                        channel_winrate = current_channel.winrate if current_channel else 0
+                        processed_text = await add_x_link(processed_text, link, channel_rating, channel_winrate)
                         if len(imgs) > 1:
                             await queue.call(
                                 (BotManager.send_media_group, chat_id, imgs, processed_text)
