@@ -32,3 +32,5 @@ class Chat(Model):
     @property
     def formatted_created_at(self) -> str:
         return self.created_at.strftime("%d.%m.%y %H:%M")
+        
+    

@@ -6,6 +6,7 @@ class ChatsState(StatesGroup):
     delete = State()
 
     add_central_chat = State()
+    choose_central_chat = State()
     add_excel = State()
 
     set_winrate= State()

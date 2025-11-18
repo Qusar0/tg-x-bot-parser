@@ -16,6 +16,8 @@ from app.bot.callback_data import (
     XChannelRatingCb,
 )
 from app.database.repo.XChannel import XChannelRepo
+from app.database.repo.Chat import ChatRepo
+from app.bot.callback_data import ChatsCentralChooseCb
 from .phrases import cancel_chat_action
 
 
@@ -150,4 +152,20 @@ class Markup:
 
         return markup.as_markup()
 
+
+    @staticmethod
+    async def choose_central_chats() -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+
+        for chat in await ChatRepo.get_central_chats():
+            markup.row(
+                InlineKeyboardButton(
+                    text=f"🗑 {chat.title} | {chat.telegram_id}",
+                    callback_data=ChatsCentralChooseCb(chat_id=chat.telegram_id).pack(),
+                )
+            )
+
+        markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=x_channels_cb))
+
+        return markup.as_markup()
 

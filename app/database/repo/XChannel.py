@@ -8,8 +8,8 @@ class XChannelRepo:
         return channels
 
     @staticmethod
-    async def add(title: str, url: str) -> XChannel:
-        channel = await XChannel.create(title=title, url=url)
+    async def add(title: str, url: str, central_chat_id: int = None) -> XChannel:
+        channel = await XChannel.create(title=title, url=url, central_chat_id=central_chat_id)
         return channel
 
     @staticmethod

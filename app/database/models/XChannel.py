@@ -7,6 +7,7 @@ class XChannel(Model):
     title = fields.CharField(max_length=255)
     url = fields.CharField(max_length=500)
     rating = fields.IntField(default=0)
+    central_chat_id = fields.BigIntField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     winrate = fields.FloatField(default=0)
 

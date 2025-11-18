@@ -7,34 +7,12 @@ from app.bot.routers.admin.x_channels.Markup import Markup
 from app.bot.routers.admin.x_channels.State import XChannelStates
 from app.bot.routers.admin.x_channels.phrases import cancel_chat_action
 from app.database.repo.XChannel import XChannelRepo
-from app.bot.callback_data import x_channels_choose_add_cb, x_channels_add_cb, x_channels_add_excel_cb, x_channels_cb
+from app.bot.callback_data import x_channels_choose_add_cb, x_channels_add_cb, x_channels_add_excel_cb, x_channels_cb, ChatsCentralChooseCb
+from aiogram import F
 from .excel_routes import router as excel_router
 
 router = Router()
 router.include_router(excel_router)
-
-
-@router.callback_query(lambda c: c.data == x_channels_choose_add_cb)
-async def choose_add_x_channels_handler(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "🔗 <b>Добавление X каналов</b>\n\n"
-        "Выберите способ добавления:",
-        reply_markup=Markup.choose_add_x_channels()
-    )
-    await callback.answer()
-
-
-@router.callback_query(lambda c: c.data == x_channels_add_cb)
-async def add_x_channels_manual_handler(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.edit_text(
-        "🔗 <b>Добавление X каналов вручную</b>\n\n"
-        "Введите название канала и ссылку:\n"
-        "Например: SpaceX https://x.com/SpaceX\n"
-        "Или: West (Scarlett's Dad) https://x.com/MarlonTag",
-        reply_markup=Markup.cancel_action()
-    )
-    await state.set_state(XChannelStates.waiting_for_manual_input)
-    await callback.answer()
 
 
 @router.callback_query(lambda c: c.data == x_channels_cb)
@@ -94,8 +72,12 @@ async def process_manual_x_channel_input(message: types.Message, state: FSMConte
             )
             return
 
+        # Получаем central_chat_id из state
+        data = await state.get_data()
+        central_chat_id = data.get('target_chat_id')
+        
         # Добавляем канал
-        channel = await XChannelRepo.add(title, url)
+        channel = await XChannelRepo.add(title, url, central_chat_id=central_chat_id)
         await message.answer(
             f"✅ Канал <b>{channel.title}</b> добавлен!\n"
             f"URL: {channel.url}",

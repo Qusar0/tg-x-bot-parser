@@ -220,7 +220,7 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
 
     # Добавляем рейтинг (всегда)
     rating_text = f"⭐{rating}" if rating > 0 else "❌"
-    rating_element = soup.new_string(f"Рейтинг: {rating_text}\n")
+    rating_element = soup.new_string(f"Rating: {rating_text}\n")
 
     winrate_text = f"⭐{winrate}" if winrate > 0 else "❌"
     winrate_element = soup.new_string(f"Винрейт чата: {winrate_text}\n")
