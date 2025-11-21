@@ -167,12 +167,12 @@ async def add_x_link(text: str, link: str, channel_rating: int = 0, channel_winr
     
     # Добавляем рейтинг (всегда)
     rating_text = f"⭐{channel_rating}" if channel_rating > 0 else "❌"
-    rating_element = soup.new_string(f"Рейтинг: {rating_text}\n")
+    rating_element = soup.new_string(f"Rating: {rating_text}\n")
     soup.append("\n\n")
     soup.append(rating_element)
     soup.append("\n")
-    winrate_text = f"⭐{channel_winrate}" if channel_winrate > 0 else "❌"
-    winrate_element = soup.new_string(f"Винрейт канала: {winrate_text}\n")
+    winrate_text = f"%{channel_winrate}" if channel_winrate > 0 else "❌"
+    winrate_element = soup.new_string(f"Winrate channel: {winrate_text}\n")
     soup.append(winrate_element)
     soup.append("\n")
     # Добавляем источник только если включена настройка
@@ -222,8 +222,8 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
     rating_text = f"⭐{rating}" if rating > 0 else "❌"
     rating_element = soup.new_string(f"Rating: {rating_text}\n")
 
-    winrate_text = f"⭐{winrate}" if winrate > 0 else "❌"
-    winrate_element = soup.new_string(f"Винрейт чата: {winrate_text}\n")
+    winrate_text = f"%{winrate}" if winrate > 0 else "❌"
+    winrate_element = soup.new_string(f"Winrate chat: {winrate_text}\n")
 
     soup.append("\n\n")
     soup.append(rating_element)

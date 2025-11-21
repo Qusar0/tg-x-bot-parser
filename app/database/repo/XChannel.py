@@ -47,6 +47,18 @@ class XChannelRepo:
         """Получить каналы с рейтингом больше указанного"""
         channels = await XChannel.filter(rating__gt=min_rating).all()
         return channels
+    
+    @staticmethod
+    async def get_by_winrate(winrate: int) -> list[XChannel]:
+        """Получить каналы по рейтингу"""
+        channels = await XChannel.filter(winrate=winrate).all()
+        return channels
+
+    @staticmethod
+    async def get_by_winrate_greater_than(min_winrate: int) -> list[XChannel]:
+        """Получить каналы с рейтингом больше указанного"""
+        channels = await XChannel.filter(winrate__gt=min_winrate).all()
+        return channels
 
     @staticmethod
     async def update_rating(channel_id: int, rating: int) -> bool:

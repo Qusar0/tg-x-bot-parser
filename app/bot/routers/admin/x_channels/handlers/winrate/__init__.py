@@ -6,22 +6,47 @@ from app.bot.routers.admin.x_parser.Markup import Markup as X_Markup
 from app.bot.routers.admin.chats.helpers import extract_first_float
 from app.database.repo.XChannel import XChannelRepo
 from app.bot.callback_data import (
-    chats_re_evaluation_cb,
-    chats_without_rating_cb,
-    chats_change_rating_cb,
     x_channels_choose_winrate,
+    x_channels_winrate_evaluation_cb,
+    x_channels_without_winrate_cb,
     x_parser_cb,
-    ChatRatingCb,
 )
 from app.bot.routers.admin.chats.State import ChatsState
 
 router = Router()
 
-@admin_router.callback_query(F.data == x_channels_choose_winrate)
+@router.callback_query(F.data == x_channels_choose_winrate)
+async def rating_x_channels_menu(cb: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
+    await cb.message.edit_text(
+        "<b>🏆 Изменение winrate X каналов</b>\n\n"
+        "Выберите действие:",
+        reply_markup=Markup.winrate_x_channels_menu()
+    )
+
+
+@router.callback_query(F.data == x_channels_without_winrate_cb)
+async def show_zero_rating_x_channels(cb: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
+
+    channels = await XChannelRepo.get_by_winrate(0)
+
+    if not channels:
+        await cb.answer("✅ Все каналы уже оценены!", show_alert=True)
+        return
+
+    await cb.answer()
+    await cb.message.edit_text(
+        f"<b>🏆 X каналы без winrate ({len(channels)} шт.)</b>\n\n"
+        "Выберите канал для оценки:",
+        reply_markup=await Markup.channel_list_for_winrate(channels, x_channels_choose_winrate)
+    )
+
+@admin_router.callback_query(F.data == x_channels_winrate_evaluation_cb)
 async def show_all_chats_for_reevaluation_for_winrate(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
 
-    chats = await XChannelRepo.get_by_rating_greater_than(0)
+    chats = await XChannelRepo.get_by_winrate_greater_than(0)
 
     if not chats:
         await cb.answer("❌ Каналы не найдены", show_alert=True)
@@ -31,7 +56,7 @@ async def show_all_chats_for_reevaluation_for_winrate(cb: types.CallbackQuery, s
     await cb.message.edit_text(
         f"<b>🤚 Переоценка winrate каналов ({len(chats)} шт.)</b>\n\n"
         "Выберите чат для изменения winrate:",
-        reply_markup=await Markup.channel_list_for_winrate(chats, x_parser_cb)
+        reply_markup=await Markup.channel_list_for_winrate(chats, x_channels_choose_winrate)
     )
 
 
@@ -49,7 +74,7 @@ async def choose_winrate_for_chat(cb: types.CallbackQuery, state: FSMContext):
         return
 
     await cb.answer()
-    current_winrate = f"Текущий winrate: {channel.winrate} ⭐" if channel.winrate > 0 else "Текущий winrate: ❌ не оценён"
+    current_winrate = f"Текущий winrate: {channel.winrate}%" if channel.winrate > 0 else "Текущий winrate: ❌ не оценён"
 
     await cb.message.edit_text(
         f"<b>🏆 Оценка чата</b>\n\n"
@@ -83,7 +108,7 @@ async def set_winrate(message: types.Message, state: FSMContext):
         await message.answer(
             f"<b>✅ Winrate успешно обновлён!</b>\n\n"
             f"<b>Чат:</b> {chat.title}\n"
-            f"<b>Новый winrate:</b> {winrate} ⭐",
+            f"<b>Новый winrate:</b> {winrate}%",
         )
         await message.answer("<b>🐦 Парсер X (Twitter)</b>\n\n"
         "Управление словами для парсинга X",

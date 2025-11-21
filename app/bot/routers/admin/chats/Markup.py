@@ -26,6 +26,10 @@ from app.bot.callback_data import (
     chats_without_rating_cb,
     chats_re_evaluation_cb,
     ChatRatingCb,
+    chats_choose_winrate,
+    chats_without_winrate_cb,
+    chats_winrate_evaluation_cb,
+    tg_parser_cb
 )
 from app.database.repo.Chat import ChatRepo
 from .phrases import cancel_chat_action
@@ -166,6 +170,21 @@ class Markup:
         )
 
         return markup.as_markup()
+    
+    @staticmethod
+    def winrate_chats_menu() -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+        markup.row(
+            InlineKeyboardButton(text="🏆 Оценить чаты без winrate", callback_data=chats_without_winrate_cb)
+        )
+        markup.row(
+            InlineKeyboardButton(text="🤚 Оценить по новой", callback_data=chats_winrate_evaluation_cb)
+        )
+        markup.row(
+            InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=tg_parser_cb)
+        )
+
+        return markup.as_markup()
 
     @staticmethod
     def choose_add_chats() -> InlineKeyboardMarkup:
@@ -269,7 +288,7 @@ class Markup:
         markup = InlineKeyboardBuilder()
 
         for chat in chats:
-            winrate_text = f"{chat.winrate} ⭐" if chat.winrate > 0 else "❌"
+            winrate_text = f"{chat.winrate}%" if chat.winrate > 0 else "❌"
             markup.row(
                 InlineKeyboardButton(
                     text=f"{winrate_text} {chat.title}",
