@@ -80,7 +80,9 @@ async def choose_winrate_for_chat(cb: types.CallbackQuery, state: FSMContext):
         f"<b>🏆 Оценка чата</b>\n\n"
         f"<b>Чат:</b> {channel.title}\n"
         f"<b>{current_winrate}</b>\n\n"
-        "Выберите новый winrate:",
+        "Введите новый winrate:",
+        reply_markup=X_Markup.cancel_input(x_channels_choose_winrate)
+        
     )
 
 

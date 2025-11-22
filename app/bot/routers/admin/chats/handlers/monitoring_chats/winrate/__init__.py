@@ -78,7 +78,8 @@ async def choose_winrate_for_chat(cb: types.CallbackQuery, state: FSMContext):
         f"<b>🏆 Оценка чата</b>\n\n"
         f"<b>Чат:</b> {chat.title}\n"
         f"<b>{current_winrate}</b>\n\n"
-        "Выберите новый winrate:",
+        "Введите новый winrate:",
+        reply_markup=TG_Markup.cancel_input(chats_choose_winrate)
     )
 
 

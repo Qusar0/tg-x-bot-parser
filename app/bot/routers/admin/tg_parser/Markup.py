@@ -56,3 +56,13 @@ class Markup:
         )
 
         return markup.as_markup()
+    
+    @staticmethod
+    def cancel_input(back_callback) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+        markup.row(
+            InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback),
+        )
+
+        return markup.as_markup()
+
