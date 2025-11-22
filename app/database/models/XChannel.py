@@ -9,6 +9,7 @@ class XChannel(Model):
     rating = fields.IntField(default=0)
     central_chat_id = fields.BigIntField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
+    winrate = fields.FloatField(default=0)
 
     @property
     def formatted_created_at(self) -> str:

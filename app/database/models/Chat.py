@@ -17,6 +17,7 @@ class Chat(Model):
     updated_at = fields.DatetimeField(auto_now_add=True)
     central_chat_id = fields.BigIntField(null=True)
 
+    winrate = fields.FloatField(default=0)
     @property
     def link(self) -> str:
         if self.entity:

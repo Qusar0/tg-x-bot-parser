@@ -40,12 +40,32 @@ class ChatRepo:
     async def get_by_rating_greater_than(min_rating: int) -> list[Chat]:
         chats = await Chat.filter(rating__gt=min_rating).all()
         return chats
+    
+    @staticmethod
+    async def get_by_winrate(winrate: int) -> list[Chat]:
+        chats = await Chat.filter(winrate=winrate).all()
+        return chats
+
+    @staticmethod
+    async def get_by_winrate_greater_than(min_winrate: int) -> list[Chat]:
+        chats = await Chat.filter(winrate__gt=min_winrate).all()
+        return chats
+
 
     @staticmethod
     async def update_rating(telegram_id: int, rating: int) -> bool:
         chat = await Chat.filter(telegram_id=telegram_id).first()
         if chat:
             chat.rating = rating
+            await chat.save()
+            return True
+        return False
+    
+    @staticmethod
+    async def update_winrate(telegram_id: int, winrate: float) -> bool:
+        chat = await Chat.filter(telegram_id=telegram_id).first()
+        if chat:
+            chat.winrate = winrate
             await chat.save()
             return True
         return False

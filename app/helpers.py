@@ -158,7 +158,7 @@ async def add_source_link(text: str, header: Tag):
     return str(soup)
 
 
-async def add_x_link(text: str, link: str, channel_rating: int = 0):
+async def add_x_link(text: str, link: str, channel_rating: int = 0, channel_winrate: float = 0):
     soup = BeautifulSoup(text, 'html.parser')
     # link приходит как "/username/status/123..." — нормализуем
     normalized = link.lstrip('/')
@@ -168,11 +168,13 @@ async def add_x_link(text: str, link: str, channel_rating: int = 0):
     # Добавляем рейтинг (всегда)
     rating_text = f"⭐{channel_rating}" if channel_rating > 0 else "❌"
     rating_element = soup.new_string(f"Rating: {rating_text}\n")
-    
     soup.append("\n\n")
     soup.append(rating_element)
     soup.append("\n")
-    
+    winrate_text = f"%{channel_winrate}" if channel_winrate > 0 else "❌"
+    winrate_element = soup.new_string(f"Winrate: {winrate_text}\n")
+    soup.append(winrate_element)
+    soup.append("\n")
     # Добавляем источник только если включена настройка
     try:
         if settings.get_source_x():
@@ -203,14 +205,16 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
         if pattern in text_lower:
             return text
 
-    # Получаем рейтинг (всегда)
+    # Получаем рейтинг и винрейт (всегда)
     rating = 0
+    winrate = 0
     if chat_id:
         try:
             from app.database.repo.Chat import ChatRepo
             chat = await ChatRepo.get_by_telegram_id(chat_id)
             if chat:
                 rating = chat.rating
+                winrate = chat.winrate
         except Exception:
             pass
 
@@ -218,8 +222,13 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
     rating_text = f"⭐{rating}" if rating > 0 else "❌"
     rating_element = soup.new_string(f"Rating: {rating_text}\n")
 
+    winrate_text = f"%{winrate}" if winrate > 0 else "❌"
+    winrate_element = soup.new_string(f"Winrate: {winrate_text}\n")
+
     soup.append("\n\n")
     soup.append(rating_element)
+    soup.append("\n")
+    soup.append(winrate_element)
     soup.append("\n")
 
     # Добавляем источник только если включена настройка

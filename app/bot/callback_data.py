@@ -22,6 +22,10 @@ x_channels_rating_cb = "x-channels-rating"
 x_channels_without_rating_cb = "x-channels-without-rating"
 x_channels_re_evaluation_cb = "x-channels-re-evaluation"
 
+x_channels_choose_winrate = "x_channels_choose_winrate"
+x_channels_without_winrate_cb = "x_channels_without_winrate_cb"
+x_channels_winrate_evaluation_cb = "x_channels_winrate_evaluation_cb"
+
 # Чаты
 chats_cb = "chats"
 chats_monitorings_cb = "chats-monitorings"
@@ -33,6 +37,7 @@ chats_add_excel_cb = "add-chats-excel"
 chats_remove_cb = "remove-chats"
 chats_uploading_cb = "chats-excel"
 
+
 chats_central_add_cb = "add-central-chats"
 chats_central_remove_cb = "remove-central-chats"
 chats_central_add_me_cb = "add-me-central-chats"
@@ -42,6 +47,11 @@ chats_load_from_account = "chats-load-from-account"
 chats_change_rating_cb = "chats-change-rating"
 chats_without_rating_cb = "chats-without-rating"
 chats_re_evaluation_cb = "chats-re-evaluation"
+
+chats_choose_winrate = "chats_choose_winrate"
+chats_without_winrate_cb = "chats_without_winrate_cb"
+chats_winrate_evaluation_cb = "chats_winrate_evaluation_cb"
+
 
 
 class ChatRatingCb(CallbackData, prefix="cr"):

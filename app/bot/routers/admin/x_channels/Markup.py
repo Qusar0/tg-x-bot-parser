@@ -12,6 +12,9 @@ from app.bot.callback_data import (
     x_channels_rating_cb,
     x_channels_without_rating_cb,
     x_channels_re_evaluation_cb,
+    x_parser_cb,
+    x_channels_winrate_evaluation_cb,
+    x_channels_without_winrate_cb,
     XChannelDeleteCb,
     XChannelRatingCb,
 )
@@ -97,6 +100,16 @@ class Markup:
         )
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=x_channels_cb))
         return markup.as_markup()
+    
+    @staticmethod
+    def winrate_x_channels_menu() -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+        markup.row(
+            InlineKeyboardButton(text="❌ Без рейтинга", callback_data=x_channels_without_winrate_cb),
+            InlineKeyboardButton(text="🔄 Переоценка", callback_data=x_channels_winrate_evaluation_cb),
+        )
+        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=x_parser_cb))
+        return markup.as_markup()
 
     @staticmethod
     def rating_keyboard(channel_id: int) -> InlineKeyboardMarkup:
@@ -134,6 +147,24 @@ class Markup:
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
 
         return markup.as_markup()
+    
+    @staticmethod
+    async def channel_list_for_winrate(channels: list, back_callback: str = x_channels_rating_cb) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+
+        for channel in channels:
+            winrate_text = f"{channel.winrate}%" if channel.winrate > 0 else "❌"
+            markup.row(
+                InlineKeyboardButton(
+                    text=f"{winrate_text} {channel.title}",
+                    callback_data=f"winratex_channel_{channel.id}"
+                )
+            )
+
+        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
+
+        return markup.as_markup()
+
 
     @staticmethod
     async def choose_central_chats() -> InlineKeyboardMarkup:

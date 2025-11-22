@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from app.bot.callback_data import back_menu_cb, WordMenuCb, ChangeSettingsCb
+from app.bot.callback_data import back_menu_cb, WordMenuCb, ChangeSettingsCb, chats_choose_winrate
 from app.enums import WordType
 from app.settings import settings
 
@@ -45,6 +45,10 @@ class Markup:
                 text=f"Указание источника: {circle}",
                 callback_data=toggle_cb,
             ),
+            InlineKeyboardButton(
+                text=f"Указать winrate канала",
+                callback_data=chats_choose_winrate,
+            ),
         )
 
         markup.row(
@@ -52,3 +56,13 @@ class Markup:
         )
 
         return markup.as_markup()
+    
+    @staticmethod
+    def cancel_input(back_callback) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+        markup.row(
+            InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback),
+        )
+
+        return markup.as_markup()
+
