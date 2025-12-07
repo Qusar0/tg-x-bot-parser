@@ -11,3 +11,5 @@ class ChatsState(StatesGroup):
 
     set_winrate= State()
     set_x_winrate= State()
+
+    delete_chats = State()

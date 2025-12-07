@@ -51,7 +51,7 @@ chats_re_evaluation_cb = "chats-re-evaluation"
 chats_choose_winrate = "chats_choose_winrate"
 chats_without_winrate_cb = "chats_without_winrate_cb"
 chats_winrate_evaluation_cb = "chats_winrate_evaluation_cb"
-
+chats_monitoring_delete_chat_cb = 'chats_monitoring_delete_chat_cb'
 
 
 class ChatRatingCb(CallbackData, prefix="cr"):
@@ -76,11 +76,21 @@ class ChooseChatCb(CallbackData, prefix="l-m-a-t-d"):
     page: int
     is_choose: bool = False
 
+class ChooseChatRemoveCb(CallbackData, prefix="choose-remove-chat"):
+    chat_id: int
+    page: int
+    is_choose: bool = False    
+
 
 chats_add_loaded_chat_cb = "chats-load-add-chat"
 
 
 class NavigationChatCb(CallbackData, prefix="oitg"):
+    direction: str
+    page: int
+
+
+class NavigationChatRemoveCb(CallbackData, prefix="navigation-remove-chat"):
     direction: str
     page: int
 

@@ -20,6 +20,8 @@ from app.bot.callback_data import (
     ChatsCentralDeleteCb,
     ChatsCentralChooseCb,
     ChooseChatCb,
+    ChooseChatRemoveCb,
+    NavigationChatRemoveCb,
     NavigationChatCb,
     chats_uploading_cb,
     chats_change_rating_cb,
@@ -29,6 +31,7 @@ from app.bot.callback_data import (
     chats_choose_winrate,
     chats_without_winrate_cb,
     chats_winrate_evaluation_cb,
+    chats_monitoring_delete_chat_cb,
     tg_parser_cb
 )
 from app.database.repo.Chat import ChatRepo
@@ -237,7 +240,7 @@ class Markup:
         for chat in await ChatRepo.get_central_chats():
             markup.row(
                 InlineKeyboardButton(
-                    text=f"🗑 {chat.title} | {chat.telegram_id}",
+                    text=f"{chat.title} | {chat.telegram_id}",
                     callback_data=ChatsCentralChooseCb(chat_id=chat.telegram_id).pack(),
                 )
             )
@@ -300,3 +303,40 @@ class Markup:
 
         return markup.as_markup()
 
+    @staticmethod
+    def nav_show_chats_from_delete(chats: list, page: int = 0) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+
+        start = page * 10
+        end = start + 10
+
+        nav_chats = chats[start:end]
+        # Добавляем кнопки в клавиатуру
+        for chat in nav_chats:
+            is_checked = "✅ " if chat.get('is_choose') else "❌ "
+
+            markup.row(
+                InlineKeyboardButton(
+                    text=f"{is_checked} {chat.get('title')}",
+                    callback_data=ChooseChatRemoveCb(chat_id=chat.get('id'), is_choose=chat.get('is_choose'), page=page).pack(),
+                )
+            )
+
+        # Добавляем кнопки навигации "влево" и "вправо"
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(
+                InlineKeyboardButton(text="«", callback_data=NavigationChatRemoveCb(direction="left", page=page).pack())
+            )
+
+        if end < len(chats):
+            nav_buttons.append(
+                InlineKeyboardButton(text="»", callback_data=NavigationChatRemoveCb(direction="right", page=page).pack())
+            )
+
+        markup.row(*nav_buttons)
+        
+        markup.row(InlineKeyboardButton(text="Отменить удаление ◀️", callback_data=cancel_chat_action))
+        markup.row(InlineKeyboardButton(text="Подтвердить удаление ☑️", callback_data=chats_monitoring_delete_chat_cb))
+
+        return markup.as_markup()
