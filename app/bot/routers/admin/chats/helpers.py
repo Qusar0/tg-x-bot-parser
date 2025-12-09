@@ -36,3 +36,31 @@ def extract_chat_entities(text: str) -> list[str]:
                     usernames.add("@" + username.lower())
 
     return list(usernames)
+
+
+import re
+
+def extract_first_float(text):
+    pattern = r'\b\d+(?:[.,]\d{1,2})?\b|(?<!\d)[.,]\d{1,2}\b'
+    
+    matches = re.findall(pattern, text)
+    
+    if not matches:
+        return False
+    
+    for match in matches:
+        try:
+            # Обрабатываем случаи типа ".5" или ",5"
+            if match.startswith('.') or match.startswith(','):
+                normalized = '0' + match.replace(',', '.')
+            else:
+                normalized = match.replace(',', '.')
+            
+            num = float(normalized)
+            
+            if num < 100:
+                return num
+        except ValueError:
+            continue
+    
+    return False
