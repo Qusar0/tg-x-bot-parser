@@ -7,44 +7,16 @@ from app.bot.routers.admin.chats.helpers import extract_first_float
 from app.database.repo.Chat import ChatRepo
 from app.bot.callback_data import (
     chats_winrate_evaluation_cb,
-    chats_without_winrate_cb,
     chats_choose_winrate,
-    tg_parser_cb,
-    ChatRatingCb,
 )
 from app.bot.routers.admin.chats.State import ChatsState
 
-@admin_router.callback_query(F.data == chats_choose_winrate)
-async def rating_chats_menu(cb: types.CallbackQuery, state: FSMContext):
-    await state.set_state(None)
-    await cb.message.edit_text(
-        "<b>🏆 Изменение winrate чатов</b>\n\n"
-        "Выберите действие:",
-        reply_markup=Markup.winrate_chats_menu()
-    )
-
-@admin_router.callback_query(F.data == chats_without_winrate_cb)
-async def show_zero_winrate_chats(cb: types.CallbackQuery, state: FSMContext):
-    await state.set_state(None)
-
-    chats = await ChatRepo.get_by_winrate(0)
-
-    if not chats:
-        await cb.answer("✅ Все чаты уже оценены!", show_alert=True)
-        return
-
-    await cb.answer()
-    await cb.message.edit_text(
-        f"<b>🏆 Чаты без winrate ({len(chats)} шт.)</b>\n\n"
-        "Выберите чат для оценки:",
-        reply_markup=Markup.chat_list_for_winrate(chats, chats_choose_winrate)
-    )
 
 @admin_router.callback_query(F.data == chats_winrate_evaluation_cb)
 async def show_all_chats_for_reevaluation_for_winrate(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
 
-    chats = await ChatRepo.get_by_winrate_greater_than(0)
+    chats = await ChatRepo.get_by_winrate_greater_than(-1)
 
     if not chats:
         await cb.answer("❌ Чаты не найдены", show_alert=True)
@@ -93,9 +65,10 @@ async def set_winrate(message: types.Message, state: FSMContext):
     await state.set_state(None)
     if not winrate:
         await message.answer("⚠️ Пожалуйста, укажите корректное значение")
-        await message.answer("<b>📱 Парсер Telegram</b>\n\n"
-        "Управление словами для мониторинга Telegram чатов",
-            reply_markup=TG_Markup.open_menu()
+        await message.answer(
+            "<b>🏆 Изменение рейтинга и винрейта чатов</b>\n\n"
+            "Выберите действие:",
+            reply_markup=Markup.rating_winrate_chats_menu()
         )
         return
     success = await ChatRepo.update_winrate(chat_id, winrate)
@@ -108,9 +81,10 @@ async def set_winrate(message: types.Message, state: FSMContext):
             f"<b>Чат:</b> {chat.title}\n"
             f"<b>Новый winrate:</b> {winrate}%",
         )
-        await message.answer("<b>📱 Парсер Telegram</b>\n\n"
-        "Управление словами для мониторинга Telegram чатов",
-            reply_markup=TG_Markup.open_menu()
+        await message.answer(    
+            "<b>🏆 Изменение рейтинга и винрейта чатов</b>\n\n"
+            "Выберите действие:",
+            reply_markup=Markup.rating_winrate_chats_menu()
         )
     else:
         await message.answer("❌ Ошибка при обновлении winrate", show_alert=True)

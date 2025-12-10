@@ -45,7 +45,7 @@ chats_central_add_me_cb = "add-me-central-chats"
 chats_load_from_account = "chats-load-from-account"
 
 chats_change_rating_cb = "chats-change-rating"
-chats_without_rating_cb = "chats-without-rating"
+chats_rating_winrate_cb = "chats_rating_winrate_cb"
 chats_re_evaluation_cb = "chats-re-evaluation"
 
 chats_choose_winrate = "chats_choose_winrate"
