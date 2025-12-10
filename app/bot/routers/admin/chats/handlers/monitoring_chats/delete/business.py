@@ -4,7 +4,7 @@ from loguru import logger
 from typing import List, Union
 from aiogram import types
 from aiogram.fsm.context import FSMContext
-from pyrogram.errors import FloodWait, UserNotParticipant, UsernameNotOccupied, UsernameInvalid
+from pyrogram.errors import FloodWait, UserNotParticipant, UsernameNotOccupied, UsernameInvalid, ChannelInvalid
 
 from app.bot.routers.admin.chats.Markup import Markup
 from app.userbot.userbot_manager import userbot_manager
@@ -88,9 +88,14 @@ async def leave_chat(chat_entity: Union[str, int]) -> bool:
             raise ChatNotExistError()
 
         await userbot_manager.leave_chat(chat_entity)
-
         await ChatRepo.delete(candidate.telegram_id)
+
         global_state.deleted_usernames.append(str(chat_entity))
+        return True
+    except ChannelInvalid:
+        logger.warning(f"Неверный канал с ID: {chat_entity}")
+        await ChatRepo.delete(candidate.telegram_id)
+        global_state.deleted_usernames.append(chat_entity)
         return True
     except UserNotParticipant:
         logger.warning(f"Аккаунта нету в группе: {chat_entity}")

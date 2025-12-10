@@ -245,7 +245,7 @@ class Markup:
                 )
             )
 
-        markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_central_cb))
+        markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_monitorings_cb))
 
         return markup.as_markup()
 
