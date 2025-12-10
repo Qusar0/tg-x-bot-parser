@@ -4,6 +4,8 @@ from app.bot.routers.admin import admin_router
 
 router = Router()
 from app.bot.routers.admin.x_channels.Markup import Markup
+from app.bot.routers.admin.x_channels.State import XChannelStates
+from app.bot.routers.admin.chats.State import ChatsState
 from app.database.repo.XChannel import XChannelRepo
 from app.bot.callback_data import (
     x_channels_rating_cb,
@@ -82,6 +84,31 @@ async def choose_rating_for_x_channel(cb: types.CallbackQuery, state: FSMContext
         "Выберите новый рейтинг от 1 до 10:",
         reply_markup=Markup.rating_keyboard(channel_id)
     )
+
+
+@router.callback_query(XChannelRatingCb.filter(), XChannelStates.add_raiting_winrate)
+async def handle_x_channel_rating_selection(cb: types.CallbackQuery, callback_data: XChannelRatingCb, state: FSMContext):
+    await state.set_state(ChatsState.set_x_winrate)
+
+    channel_id = callback_data.channel_id
+    rating = callback_data.rating
+
+    success = await XChannelRepo.update_rating(channel_id, rating)
+
+    if success:
+        channel = await XChannelRepo.get_by_id(channel_id)
+
+        await cb.answer(f"✅ Рейтинг установлен: {rating} ⭐", show_alert=True)
+        await cb.message.edit_text(
+            f"<b>✅ Рейтинг успешно обновлён!</b>\n\n"
+            f"<b>Канал:</b> {channel.title}\n"
+            f"<b>URL:</b> {channel.url}\n"
+            f"<b>Новый рейтинг:</b> {rating} ⭐"
+            "Винрейт",
+            reply_markup=Markup.cancel_action()
+        )
+    else:
+        await cb.answer("❌ Ошибка при обновлении рейтинга", show_alert=True)
 
 
 @router.callback_query(XChannelRatingCb.filter())
