@@ -108,7 +108,7 @@ class Markup:
             InlineKeyboardButton(text="❌ Без рейтинга", callback_data=x_channels_without_winrate_cb),
             InlineKeyboardButton(text="🔄 Переоценка", callback_data=x_channels_winrate_evaluation_cb),
         )
-        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=x_parser_cb))
+        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=x_channels_cb))
         return markup.as_markup()
 
     @staticmethod

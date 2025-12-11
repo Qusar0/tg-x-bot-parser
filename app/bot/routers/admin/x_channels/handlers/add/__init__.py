@@ -60,6 +60,4 @@ async def on_target_chosen_for_x_channels(cb: types.CallbackQuery, callback_data
         # Для Excel показываем шаблон
         from .excel_routes import add_x_channels_excel_handler
         await add_x_channels_excel_handler(cb, state)
-    
     await cb.answer()
-
