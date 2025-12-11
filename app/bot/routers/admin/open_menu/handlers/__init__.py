@@ -30,7 +30,8 @@ async def delete_handler(cb: types.CallbackQuery):
 
 
 @admin_router.callback_query(F.data == x_channels_cb)
-async def x_channels_handler(callback: types.CallbackQuery):
+async def x_channels_handler(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     await callback.message.edit_text(
         "🔗 <b>Управление X каналами</b>\n\n"
         "Выберите действие:",

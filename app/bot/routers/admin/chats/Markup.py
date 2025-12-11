@@ -28,11 +28,8 @@ from app.bot.callback_data import (
     chats_rating_winrate_cb,
     chats_re_evaluation_cb,
     ChatRatingCb,
-    chats_choose_winrate,
-    chats_without_winrate_cb,
     chats_winrate_evaluation_cb,
     chats_monitoring_delete_chat_cb,
-    tg_parser_cb
 )
 from app.database.repo.Chat import ChatRepo
 from .phrases import cancel_chat_action

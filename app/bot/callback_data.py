@@ -18,8 +18,8 @@ x_channels_add_excel_cb = "x-channels-add-excel"
 x_channels_remove_cb = "x-channels-remove"
 x_channels_show_cb = "x-channels-show"
 x_channels_uploading_cb = "x-channels-excel"
-x_channels_rating_cb = "x-channels-rating"
-x_channels_without_rating_cb = "x-channels-without-rating"
+x_channels_change_rating_winrate_cb = "x_channels_change_rating_winrate_cb"
+x_channels_rating_winrate_cb = "x_channels_rating_winrate_cb"
 x_channels_re_evaluation_cb = "x-channels-re-evaluation"
 
 x_channels_choose_winrate = "x_channels_choose_winrate"
@@ -49,7 +49,6 @@ chats_rating_winrate_cb = "chats_rating_winrate_cb"
 chats_re_evaluation_cb = "chats-re-evaluation"
 
 chats_choose_winrate = "chats_choose_winrate"
-chats_without_winrate_cb = "chats_without_winrate_cb"
 chats_winrate_evaluation_cb = "chats_winrate_evaluation_cb"
 chats_monitoring_delete_chat_cb = 'chats_monitoring_delete_chat_cb'
 
