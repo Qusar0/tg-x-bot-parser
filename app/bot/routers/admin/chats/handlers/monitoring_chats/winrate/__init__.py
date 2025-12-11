@@ -8,6 +8,7 @@ from app.database.repo.Chat import ChatRepo
 from app.bot.callback_data import (
     chats_winrate_evaluation_cb,
     chats_choose_winrate,
+    chats_change_rating_cb
 )
 from app.bot.routers.admin.chats.State import ChatsState
 
@@ -26,7 +27,7 @@ async def show_all_chats_for_reevaluation_for_winrate(cb: types.CallbackQuery, s
     await cb.message.edit_text(
         f"<b>🤚 Переоценка winrate чатов ({len(chats)} шт.)</b>\n\n"
         "Выберите чат для изменения winrate:",
-        reply_markup=Markup.chat_list_for_winrate(chats, chats_choose_winrate)
+        reply_markup=Markup.chat_list_for_winrate(chats, chats_change_rating_cb)
     )
 
 
@@ -51,7 +52,7 @@ async def choose_winrate_for_chat(cb: types.CallbackQuery, state: FSMContext):
         f"<b>Чат:</b> {chat.title}\n"
         f"<b>{current_winrate}</b>\n\n"
         "Введите новый winrate:",
-        reply_markup=TG_Markup.cancel_input(chats_choose_winrate)
+        reply_markup=TG_Markup.cancel_input(chats_winrate_evaluation_cb)
     )
 
 
