@@ -20,16 +20,16 @@ from app.bot.callback_data import (
     ChatsCentralDeleteCb,
     ChatsCentralChooseCb,
     ChooseChatCb,
+    ChooseChatRemoveCb,
+    NavigationChatRemoveCb,
     NavigationChatCb,
     chats_uploading_cb,
     chats_change_rating_cb,
-    chats_without_rating_cb,
+    chats_rating_winrate_cb,
     chats_re_evaluation_cb,
     ChatRatingCb,
-    chats_choose_winrate,
-    chats_without_winrate_cb,
     chats_winrate_evaluation_cb,
-    tg_parser_cb
+    chats_monitoring_delete_chat_cb,
 )
 from app.database.repo.Chat import ChatRepo
 from .phrases import cancel_chat_action
@@ -150,38 +150,26 @@ class Markup:
             InlineKeyboardButton(text="📗 Список чатов Excel", callback_data=chats_uploading_cb)
         )
         markup.row(
-            InlineKeyboardButton(text="🏆 Изменить рейтинг чатов", callback_data=chats_change_rating_cb)
+            InlineKeyboardButton(text="🏆 Изменить рейтинг/винрейт чатов", callback_data=chats_change_rating_cb)
         )
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_cb))
 
         return markup.as_markup()
 
     @staticmethod
-    def rating_chats_menu() -> InlineKeyboardMarkup:
+    def rating_winrate_chats_menu() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
         markup.row(
-            InlineKeyboardButton(text="🏆 Оценить чаты без рейтинга", callback_data=chats_without_rating_cb)
+            InlineKeyboardButton(text="🏆 Указать рейтинг и винрейт", callback_data=chats_rating_winrate_cb)
         )
         markup.row(
-            InlineKeyboardButton(text="🤚 Оценить по новой", callback_data=chats_re_evaluation_cb)
+            InlineKeyboardButton(text="🤚 Изменить рейтинг", callback_data=chats_re_evaluation_cb)
+        )
+        markup.row(
+            InlineKeyboardButton(text="🤚 Изменить винрейт", callback_data=chats_winrate_evaluation_cb)
         )
         markup.row(
             InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_monitorings_cb)
-        )
-
-        return markup.as_markup()
-    
-    @staticmethod
-    def winrate_chats_menu() -> InlineKeyboardMarkup:
-        markup = InlineKeyboardBuilder()
-        markup.row(
-            InlineKeyboardButton(text="🏆 Оценить чаты без winrate", callback_data=chats_without_winrate_cb)
-        )
-        markup.row(
-            InlineKeyboardButton(text="🤚 Оценить по новой", callback_data=chats_winrate_evaluation_cb)
-        )
-        markup.row(
-            InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=tg_parser_cb)
         )
 
         return markup.as_markup()
@@ -237,12 +225,12 @@ class Markup:
         for chat in await ChatRepo.get_central_chats():
             markup.row(
                 InlineKeyboardButton(
-                    text=f"🗑 {chat.title} | {chat.telegram_id}",
+                    text=f"{chat.title} | {chat.telegram_id}",
                     callback_data=ChatsCentralChooseCb(chat_id=chat.telegram_id).pack(),
                 )
             )
 
-        markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_central_cb))
+        markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_monitorings_cb))
 
         return markup.as_markup()
 
@@ -267,7 +255,7 @@ class Markup:
         return markup.as_markup()
 
     @staticmethod
-    def chat_list_for_rating(chats: list, back_callback: str = chats_change_rating_cb) -> InlineKeyboardMarkup:
+    def chat_list_for_rating(chats: list, back_callback: str = chats_change_rating_cb, withWinrate: bool = False) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
         for chat in chats:
@@ -275,14 +263,14 @@ class Markup:
             markup.row(
                 InlineKeyboardButton(
                     text=f"{rating_text} {chat.title}",
-                    callback_data=f"rate_chat_{chat.telegram_id}"
+                    callback_data=f"rate_chat_winrate_{chat.telegram_id}" if withWinrate else f"rate_chat_{chat.telegram_id}"
                 )
             )
 
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
 
         return markup.as_markup()
-    
+
     @staticmethod
     def chat_list_for_winrate(chats: list, back_callback: str = chats_change_rating_cb) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
@@ -300,3 +288,40 @@ class Markup:
 
         return markup.as_markup()
 
+    @staticmethod
+    def nav_show_chats_from_delete(chats: list, page: int = 0) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+
+        start = page * 10
+        end = start + 10
+
+        nav_chats = chats[start:end]
+        # Добавляем кнопки в клавиатуру
+        for chat in nav_chats:
+            is_checked = "✅ " if chat.get('is_choose') else "❌ "
+
+            markup.row(
+                InlineKeyboardButton(
+                    text=f"{is_checked} {chat.get('title')}",
+                    callback_data=ChooseChatRemoveCb(chat_id=chat.get('id'), is_choose=chat.get('is_choose'), page=page).pack(),
+                )
+            )
+
+        # Добавляем кнопки навигации "влево" и "вправо"
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(
+                InlineKeyboardButton(text="«", callback_data=NavigationChatRemoveCb(direction="left", page=page).pack())
+            )
+
+        if end < len(chats):
+            nav_buttons.append(
+                InlineKeyboardButton(text="»", callback_data=NavigationChatRemoveCb(direction="right", page=page).pack())
+            )
+
+        markup.row(*nav_buttons)
+        
+        markup.row(InlineKeyboardButton(text="Отменить удаление ◀️", callback_data=cancel_chat_action))
+        markup.row(InlineKeyboardButton(text="Подтвердить удаление ☑️", callback_data=chats_monitoring_delete_chat_cb))
+
+        return markup.as_markup()

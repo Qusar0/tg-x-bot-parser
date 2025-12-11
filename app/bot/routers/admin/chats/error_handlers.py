@@ -76,3 +76,10 @@ async def error_handler(ex: Exception, message: types.Message, chat_entity: str,
         f"Чат: <b>{chat_entity}</b>\n<b>Что-то пошло не так:</b>\n<code>{ex}</code>",
         reply_markup=get_markup(is_last),
     )
+
+async def error_handler_delete_chat(ex: Exception, message: types.Message, chat_entity: str, is_last: bool):
+    logger.error(f"Что-то пошло не так при удалении чата {ex}")
+
+    await message.reply(
+        f"Чат: <b>{chat_entity}</b>\n<b>Что-то пошло не так:</b>\n<code>{ex}</code>",
+    )

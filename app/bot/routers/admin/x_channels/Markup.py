@@ -9,12 +9,10 @@ from app.bot.callback_data import (
     x_channels_remove_cb,
     x_channels_show_cb,
     x_channels_uploading_cb,
-    x_channels_rating_cb,
-    x_channels_without_rating_cb,
+    x_channels_rating_winrate_cb,
+    x_channels_change_rating_winrate_cb,
     x_channels_re_evaluation_cb,
-    x_parser_cb,
     x_channels_winrate_evaluation_cb,
-    x_channels_without_winrate_cb,
     XChannelDeleteCb,
     XChannelRatingCb,
 )
@@ -39,7 +37,7 @@ class Markup:
             InlineKeyboardButton(text="📗 Список каналов Excel", callback_data=x_channels_uploading_cb)
         )
         markup.row(
-            InlineKeyboardButton(text="🏆 Рейтинг каналов", callback_data=x_channels_rating_cb)
+            InlineKeyboardButton(text="🏆 Рейтинг/винрейт каналов", callback_data=x_channels_change_rating_winrate_cb)
         )
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=back_menu_cb))
 
@@ -92,23 +90,21 @@ class Markup:
         return markup.as_markup()
 
     @staticmethod
-    def rating_x_channels_menu() -> InlineKeyboardMarkup:
+    def rating_winrate_x_channels_menu() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
         markup.row(
-            InlineKeyboardButton(text="❌ Без рейтинга", callback_data=x_channels_without_rating_cb),
-            InlineKeyboardButton(text="🔄 Переоценка", callback_data=x_channels_re_evaluation_cb),
+            InlineKeyboardButton(text="🏆 Указать рейтинг и винрейт канала", callback_data=x_channels_rating_winrate_cb)
         )
-        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=x_channels_cb))
-        return markup.as_markup()
-    
-    @staticmethod
-    def winrate_x_channels_menu() -> InlineKeyboardMarkup:
-        markup = InlineKeyboardBuilder()
         markup.row(
-            InlineKeyboardButton(text="❌ Без рейтинга", callback_data=x_channels_without_winrate_cb),
-            InlineKeyboardButton(text="🔄 Переоценка", callback_data=x_channels_winrate_evaluation_cb),
+            InlineKeyboardButton(text="🤚 Изменить рейтинг канала", callback_data=x_channels_re_evaluation_cb)
         )
-        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=x_parser_cb))
+        markup.row(
+            InlineKeyboardButton(text="🤚 Изменить винрейт канала", callback_data=x_channels_winrate_evaluation_cb)
+        )
+        markup.row(
+            InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=x_channels_cb)
+        )
+
         return markup.as_markup()
 
     @staticmethod
@@ -127,12 +123,12 @@ class Markup:
         for i in range(0, len(buttons), 5):
             markup.row(*buttons[i:i + 5])
 
-        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=x_channels_rating_cb))
+        markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=x_channels_change_rating_winrate_cb))
 
         return markup.as_markup()
 
     @staticmethod
-    async def channel_list_for_rating(channels: list, back_callback: str = x_channels_rating_cb) -> InlineKeyboardMarkup:
+    async def channel_list_for_rating(channels: list, back_callback: str = x_channels_change_rating_winrate_cb, withWinrate: bool = False) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
         for channel in channels:
@@ -140,16 +136,15 @@ class Markup:
             markup.row(
                 InlineKeyboardButton(
                     text=f"{rating_text} {channel.title}",
-                    callback_data=f"rate_x_channel_{channel.id}"
+                    callback_data=f"rate_x_channel_winrate_{channel.id}" if withWinrate else f"rate_x_channel_{channel.id}"
                 )
             )
-
         markup.row(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
 
         return markup.as_markup()
     
     @staticmethod
-    async def channel_list_for_winrate(channels: list, back_callback: str = x_channels_rating_cb) -> InlineKeyboardMarkup:
+    async def channel_list_for_winrate(channels: list, back_callback: str = x_channels_change_rating_winrate_cb) -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
 
         for channel in channels:

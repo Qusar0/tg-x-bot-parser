@@ -78,13 +78,25 @@ async def process_manual_x_channel_input(message: types.Message, state: FSMConte
         
         # Добавляем канал
         channel = await XChannelRepo.add(title, url, central_chat_id=central_chat_id)
+        # await message.answer()
+        current_rating = f"Текущий рейтинг: {channel.rating} ⭐" if channel.rating > 0 else "Текущий рейтинг: ❌ не оценён"
+
         await message.answer(
-            f"✅ Канал <b>{channel.title}</b> добавлен!\n"
-            f"URL: {channel.url}",
-            reply_markup=Markup.back_menu()
+            f"<b>🏆 Оценка X канала</b>\n\n"
+            f"<b>Канал:</b> {channel.title}\n"
+            f"<b>URL:</b> {channel.url}\n"
+            f"<b>{current_rating}</b>\n\n"
+            "Выберите новый рейтинг от 1 до 10:",
+            reply_markup=Markup.rating_keyboard(channel.id)
         )
+        await state.set_state(XChannelStates.add_raiting_winrate)
+        # await message.answer(
+        #     f"✅ Канал <b>{channel.title}</b> добавлен!\n"
+        #     f"URL: {channel.url}",
+        #     reply_markup=Markup.back_menu()
+        # )
         
-        await state.clear()
+        # await state.clear()
         
     except Exception as e:
         logger.error(f"Ошибка при добавлении X канала: {e}")

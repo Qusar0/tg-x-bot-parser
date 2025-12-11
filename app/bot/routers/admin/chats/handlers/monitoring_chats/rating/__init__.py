@@ -5,9 +5,8 @@ from app.bot.routers.admin.chats.Markup import Markup
 from app.database.repo.Chat import ChatRepo
 from app.bot.callback_data import (
     chats_re_evaluation_cb,
-    chats_without_rating_cb,
+    chats_rating_winrate_cb,
     chats_change_rating_cb,
-    chats_choose_winrate,
     ChatRatingCb,
 )
 from app.bot.routers.admin.chats.State import ChatsState
@@ -17,17 +16,17 @@ from app.bot.routers.admin.chats.State import ChatsState
 async def rating_chats_menu(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
     await cb.message.edit_text(
-        "<b>🏆 Изменение рейтинга чатов</b>\n\n"
+        "<b>🏆 Изменение рейтинга и винрейта чатов</b>\n\n"
         "Выберите действие:",
-        reply_markup=Markup.rating_chats_menu()
+        reply_markup=Markup.rating_winrate_chats_menu()
     )
 
 
-@admin_router.callback_query(F.data == chats_without_rating_cb)
+@admin_router.callback_query(F.data == chats_rating_winrate_cb)
 async def show_zero_rating_chats(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
 
-    chats = await ChatRepo.get_by_rating(0)
+    chats = await ChatRepo.get_all()
 
     if not chats:
         await cb.answer("✅ Все чаты уже оценены!", show_alert=True)
@@ -35,17 +34,18 @@ async def show_zero_rating_chats(cb: types.CallbackQuery, state: FSMContext):
 
     await cb.answer()
     await cb.message.edit_text(
-        f"<b>🏆 Чаты без рейтинга ({len(chats)} шт.)</b>\n\n"
+        f"<b>🏆 Всего чатов ({len(chats)} шт.)</b>\n\n"
         "Выберите чат для оценки:",
-        reply_markup=Markup.chat_list_for_rating(chats, chats_change_rating_cb)
+        reply_markup=Markup.chat_list_for_rating(chats, chats_change_rating_cb, True)
     )
+
 
 
 @admin_router.callback_query(F.data == chats_re_evaluation_cb)
 async def show_all_chats_for_reevaluation(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
 
-    chats = await ChatRepo.get_by_rating_greater_than(0)
+    chats = await ChatRepo.get_by_rating_greater_than(-1)
 
     if not chats:
         await cb.answer("❌ Чаты не найдены", show_alert=True)
@@ -63,7 +63,12 @@ async def show_all_chats_for_reevaluation(cb: types.CallbackQuery, state: FSMCon
 async def choose_rating_for_chat(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
 
-    chat_id = int(cb.data.replace("rate_chat_", ""))
+    f_data = cb.data.replace("rate_chat_", "")
+    if 'winrate_' in f_data:
+        chat_id = int(f_data.replace("winrate_", ""))
+        await state.set_state(ChatsState.set_raiting_and_winrate)
+    else:
+        chat_id = int(f_data)
 
     chat = await ChatRepo.get_by_telegram_id(chat_id)
 
@@ -83,6 +88,29 @@ async def choose_rating_for_chat(cb: types.CallbackQuery, state: FSMContext):
     )
 
 
+@admin_router.callback_query(ChatRatingCb.filter(), ChatsState.set_raiting_and_winrate)
+async def handle_rating_with_winrate_selection(cb: types.CallbackQuery, callback_data: ChatRatingCb, state: FSMContext):
+    await state.set_state(ChatsState.set_winrate)
+
+    chat_id = callback_data.chat_id
+    await state.set_data({"winrate_chat_id": chat_id})
+    rating = callback_data.rating
+
+    success = await ChatRepo.update_rating(chat_id, rating)
+
+    if success:
+        chat = await ChatRepo.get_by_telegram_id(chat_id)
+
+        await cb.answer(f"✅ Рейтинг установлен: {rating} ⭐", show_alert=True)
+        await cb.message.edit_text(
+            f"<b>✅ Рейтинг успешно обновлён!</b>\n\n"
+            f"<b>Чат:</b> {chat.title}\n"
+            f"<b>Новый рейтинг:</b> {rating} ⭐\n"
+            "Теперь введите винрейт:",
+            reply_markup=Markup.back_monitoring_chat()
+        )
+    else:
+        await cb.answer("❌ Ошибка при обновлении рейтинга", show_alert=True)
 
 
 @admin_router.callback_query(ChatRatingCb.filter())
@@ -103,7 +131,7 @@ async def handle_rating_selection(cb: types.CallbackQuery, callback_data: ChatRa
             f"<b>Чат:</b> {chat.title}\n"
             f"<b>Новый рейтинг:</b> {rating} ⭐",
             
-            reply_markup=Markup.rating_chats_menu()
+            reply_markup=Markup.rating_winrate_chats_menu()
         )
     else:
         await cb.answer("❌ Ошибка при обновлении рейтинга", show_alert=True)
