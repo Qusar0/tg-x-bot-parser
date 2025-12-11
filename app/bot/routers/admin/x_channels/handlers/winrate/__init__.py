@@ -97,9 +97,9 @@ async def set_winrate(message: types.Message, state: FSMContext):
     await state.set_state(None)
     if not winrate:
         await message.answer("⚠️ Пожалуйста, укажите корректное значение")
-        await message.answer("<b>🐦 Парсер X (Twitter)</b>\n\n"
-        "Управление словами для парсинга X",
-            reply_markup=X_Markup.open_menu()
+        await message.answer( "🔗 <b>X каналы</b>\n\n"
+        "Управление каналами X для мониторинга",
+        reply_markup=Markup.x_channels_menu()
         )
         return
     success = await XChannelRepo.update_winrate(channel_id, winrate)
@@ -112,9 +112,9 @@ async def set_winrate(message: types.Message, state: FSMContext):
             f"<b>Чат:</b> {chat.title}\n"
             f"<b>Новый winrate:</b> {winrate}%",
         )
-        await message.answer("<b>🐦 Парсер X (Twitter)</b>\n\n"
-        "Управление словами для парсинга X",
-            reply_markup=X_Markup.open_menu()
+        await message.answer( "🔗 <b>X каналы</b>\n\n"
+            "Управление каналами X для мониторинга",
+            reply_markup=Markup.x_channels_menu()
         )
     else:
         await message.answer("❌ Ошибка при обновлении winrate", show_alert=True)

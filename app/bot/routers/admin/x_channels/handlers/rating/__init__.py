@@ -73,10 +73,10 @@ async def choose_rating_for_x_channel(cb: types.CallbackQuery, state: FSMContext
         await cb.answer("❌ Канал не найден", show_alert=True)
         return
 
-    await cb.answer()
+    # await cb.answer()
     current_rating = f"Текущий рейтинг: {channel.rating} ⭐" if channel.rating > 0 else "Текущий рейтинг: ❌ не оценён"
 
-    await cb.message.edit_text(
+    await cb.message.answer(
         f"<b>🏆 Оценка X канала</b>\n\n"
         f"<b>Канал:</b> {channel.title}\n"
         f"<b>URL:</b> {channel.url}\n"
@@ -89,8 +89,9 @@ async def choose_rating_for_x_channel(cb: types.CallbackQuery, state: FSMContext
 @router.callback_query(XChannelRatingCb.filter(), XChannelStates.add_raiting_winrate)
 async def handle_x_channel_rating_selection(cb: types.CallbackQuery, callback_data: XChannelRatingCb, state: FSMContext):
     await state.set_state(ChatsState.set_x_winrate)
-
+    
     channel_id = callback_data.channel_id
+    await state.set_data({"winrate_x_channel_id": channel_id})
     rating = callback_data.rating
 
     success = await XChannelRepo.update_rating(channel_id, rating)

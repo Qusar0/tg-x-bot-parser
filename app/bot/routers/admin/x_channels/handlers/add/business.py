@@ -78,10 +78,10 @@ async def process_manual_x_channel_input(message: types.Message, state: FSMConte
         
         # Добавляем канал
         channel = await XChannelRepo.add(title, url, central_chat_id=central_chat_id)
-        await message.answer()
+        # await message.answer()
         current_rating = f"Текущий рейтинг: {channel.rating} ⭐" if channel.rating > 0 else "Текущий рейтинг: ❌ не оценён"
 
-        await message.edit_text(
+        await message.answer(
             f"<b>🏆 Оценка X канала</b>\n\n"
             f"<b>Канал:</b> {channel.title}\n"
             f"<b>URL:</b> {channel.url}\n"
