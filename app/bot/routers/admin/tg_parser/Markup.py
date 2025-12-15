@@ -45,10 +45,6 @@ class Markup:
                 text=f"Указание источника: {circle}",
                 callback_data=toggle_cb,
             ),
-            InlineKeyboardButton(
-                text=f"Указать winrate канала",
-                callback_data=chats_choose_winrate,
-            ),
         )
 
         markup.row(

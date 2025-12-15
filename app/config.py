@@ -42,7 +42,7 @@ class Config:
     redis: Redis
 
     def get_sleep_time(self) -> int:
-        return random.randint(120, 200)
+        return random.randint(1, 2)
 
 
 config = configparser.ConfigParser()

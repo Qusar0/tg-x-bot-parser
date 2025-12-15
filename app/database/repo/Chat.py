@@ -51,6 +51,10 @@ class ChatRepo:
         chats = await Chat.filter(winrate__gt=min_winrate).all()
         return chats
 
+    @staticmethod
+    async def get_monitoring_chats() -> list[Chat]:
+        chats = await Chat.filter(is_central=False).all()
+        return chats
 
     @staticmethod
     async def update_rating(telegram_id: int, rating: int) -> bool:
@@ -115,3 +119,4 @@ class ChatRepo:
             if chat.central_chat_id == id:
                 return True
         return False
+
