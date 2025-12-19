@@ -96,7 +96,7 @@ class XScrapper:
                 await asyncio.sleep(10)
                 return
 
-            # Создаем словарь для быстрого поиска канала по URL
+            # Создаем словарь для поиска канала по URL
             channels_dict = {channel.url: channel for channel in channels_data}
             channels = [channel.url for channel in channels_data]
             logger.info(f"Найдено {len(channels)} X каналов для мониторинга: {channels}")
@@ -168,7 +168,7 @@ class XScrapper:
                 if is_pinned:
                     logger.info("Найден закрепленный пост, пропускаем")
                     continue
-                
+
                 time_tag = card.find("time")
                 if time_tag:
                     datetime_str = time_tag.get("datetime")
@@ -187,14 +187,14 @@ class XScrapper:
 
                 # Парс текста
                 tweet_div = card.find("div", {"data-testid": "tweetText"})
-                
+
                 if tweet_div:
                     tweet_text = tweet_div.get_text(separator=" ", strip=True)
                     logger.info(f"Tweet text: {tweet_text[:100]}...")
                 else:
                     tweet_text = ""
                     logger.warning("Не найден текст твита")
-                
+
                 tweet_div = str(tweet_div)
 
                 photo_divs = card.find_all("div", {"data-testid": "tweetPhoto"})
@@ -205,45 +205,73 @@ class XScrapper:
                         imgs.append(img["src"])
                 logger.info(f"{imgs}")
 
+                if current_channel and current_channel.central_chat_id:
+                    chat_id = current_channel.central_chat_id
+
+                    matched_stopwords = await is_word_match(tweet_div, WordType.x_stopword)
+                    if matched_stopwords:
+                        logger.info(f"Нашли стоп-слова в сообщении: {id}")
+                        continue
+
+                    if await is_duplicate(id, tweet_text):
+                        logger.info(f"Сообщение дубликат: {id}")
+                        continue
+                    keyword = None
+                    processed_text = await preprocess_text(tweet_div, keyword, platform="x")
+                    channel_rating = current_channel.rating if current_channel else 0
+                    channel_winrate = current_channel.winrate if current_channel else 0
+                    processed_text = await add_x_link(processed_text, link, channel_rating, channel_winrate)
+                    if len(imgs) > 1:
+                        await queue.call(
+                            (BotManager.send_media_group, chat_id, imgs, processed_text)
+                        )
+
+                    elif len(imgs) == 1:
+                        await queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
+                    else:
+                        await queue.call((BotManager.send_message, chat_id, processed_text))
+                    continue
+
+                # СЛУЧАЙ 2: Ищем ключевые слова
+                target_chats = set()  # Используем set для уникальности
+                matched_keywords = []
+
                 for keyword in keywords:
                     if keyword.title in tweet_div:
-                        # Проверяем соответствие: central_chat_id ключевого слова должен совпадать с central_chat_id X канала
-                        keyword_central_chat_id = keyword.central_chat_id
-                        channel_central_chat_id = current_channel.central_chat_id if current_channel else None
-                        
-                        # Если у X канала не указан central_chat_id, пропускаем
-                        if not channel_central_chat_id:
-                            logger.info(f"У X канала {current_channel.url if current_channel else 'unknown'} не указан central_chat_id, пропускаем")
-                            continue
-                        
-                        if keyword_central_chat_id != channel_central_chat_id:
-                            logger.info(f"Центральный чат {keyword_central_chat_id} из ключевого слова не совпадает с central_chat_id X канала {channel_central_chat_id}, пропускаем")
-                            continue
-                        
-                        chat_id = keyword_central_chat_id
+                        if keyword.central_chat_id:  # Проверяем, что у ключевого слова есть чат
+                            target_chats.add(keyword.central_chat_id)
+                            matched_keywords.append(keyword)  # Сохраняем для обработки
 
-                        matched_stopwords = await is_word_match(tweet_div, WordType.x_stopword)
-                        if matched_stopwords:
-                            logger.info(f"Нашли стоп-слова в сообщении: {id}")
-                            continue
+                # Если не нашли подходящих чатов - пропускаем
+                if not target_chats:
+                    continue
 
-                        if await is_duplicate(id, tweet_text):
-                            logger.info(f"Сообщение дубликат: {id}")
-                            continue
+                # Проверяем стоп-слова и дубликаты (ОДИН РАЗ для поста)
+                matched_stopwords = await is_word_match(tweet_div, WordType.x_stopword)
+                if matched_stopwords:
+                    logger.info(f"Нашли стоп-слова в сообщении: {id}")
+                    continue
 
-                        processed_text = await preprocess_text(tweet_div, keyword, platform="x")
-                        channel_rating = current_channel.rating if current_channel else 0
-                        channel_winrate = current_channel.winrate if current_channel else 0
-                        processed_text = await add_x_link(processed_text, link, channel_rating, channel_winrate)
-                        if len(imgs) > 1:
-                            await queue.call(
-                                (BotManager.send_media_group, chat_id, imgs, processed_text)
-                            )
+                if await is_duplicate(id, tweet_text):
+                    logger.info(f"Сообщение дубликат: {id}")
+                    continue
 
-                        elif len(imgs) == 1:
-                            await queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
-                        else:
-                            await queue.call((BotManager.send_message, chat_id, processed_text))
+                for chat_id in target_chats:
+                    # Можно использовать первое подходящее ключевое слово или все
+                    keyword_for_processing = matched_keywords[0] if matched_keywords else None
+                    processed_text = await preprocess_text(tweet_div, keyword_for_processing, platform="x")
+                    channel_rating = current_channel.rating if current_channel else 0
+                    channel_winrate = current_channel.winrate if current_channel else 0
+                    processed_text = await add_x_link(processed_text, link, channel_rating, channel_winrate)
+                    if len(imgs) > 1:
+                        await queue.call(
+                            (BotManager.send_media_group, chat_id, imgs, processed_text)
+                        )
+
+                    elif len(imgs) == 1:
+                        await queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
+                    else:
+                        await queue.call((BotManager.send_message, chat_id, processed_text))
 
             if exit_loop:
                 logger.info("Закончились посты в этом канале")
