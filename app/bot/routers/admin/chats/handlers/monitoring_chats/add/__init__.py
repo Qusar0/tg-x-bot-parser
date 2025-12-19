@@ -58,9 +58,9 @@ async def choose_target_handler(cb: types.CallbackQuery, state: FSMContext):
     await cb.message.edit_reply_markup(reply_markup=None)
     await cb.message.answer(
         """
- 🎯 <b>Сначала выберите чат, куда будут приходить уведомления:</b>
- """,
-        reply_markup= await Markup.choose_central_chats(),
+        🎯 <b>Сначала выберите чат, куда будут приходить уведомления:</b>
+        """,
+        reply_markup=await Markup.choose_central_chats(),
     )
 
 @admin_router.callback_query(ChatsCentralChooseCb.filter(), ChatsState.choose_central_chat)
@@ -76,6 +76,7 @@ async def on_target_chosen(cb: types.CallbackQuery, callback_data: ChatsCentralC
         await chats_add_excel_handler(cb, state)
     elif add_type == chats_load_from_account:
         await load_chats_from_account(cb, state)
+
 
 async def chats_add_handler(cb: types.CallbackQuery, state: FSMContext):
     await state.set_state(ChatsState.add)
@@ -106,7 +107,7 @@ async def chats_add_scene(message: types.Message, state: FSMContext):
     if not chat_entities:
         await message.answer("<b>⚠️ Пожалуйста, введите корректные чаты</b>", reply_markup=Markup.cancel_action())
         return
-    
+
     global_state.is_adding = True
     global_state.adding_async_task = asyncio.ensure_future(start_subscribe(message, state, chat_entities))
     await global_state.adding_async_task

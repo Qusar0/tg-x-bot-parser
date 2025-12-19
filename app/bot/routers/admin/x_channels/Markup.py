@@ -173,6 +173,7 @@ class Markup:
                 )
             )
 
+        markup.row(InlineKeyboardButton(text="Пропустить выбор чата", callback_data=ChatsCentralChooseCb(chat_id=None).pack()))
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=x_channels_cb))
 
         return markup.as_markup()
