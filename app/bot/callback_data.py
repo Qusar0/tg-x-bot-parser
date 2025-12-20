@@ -66,8 +66,9 @@ class ChooseCentralChatForWordCb(CallbackData, prefix="pqt-1"):
 class ChatsCentralDeleteCb(CallbackData, prefix="clv"):
     chat_id: int
 
+
 class ChatsCentralChooseCb(CallbackData, prefix="ccc"):
-    chat_id: int
+    chat_id: int | None
 
 
 class ChooseChatCb(CallbackData, prefix="l-m-a-t-d"):

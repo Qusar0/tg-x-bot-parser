@@ -217,7 +217,7 @@ class Markup:
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_central_cb))
 
         return markup.as_markup()
-    
+
     @staticmethod
     async def choose_central_chats() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
@@ -229,7 +229,7 @@ class Markup:
                     callback_data=ChatsCentralChooseCb(chat_id=chat.telegram_id).pack(),
                 )
             )
-
+        markup.row(InlineKeyboardButton(text="Пропустить выбор чата", callback_data=ChatsCentralChooseCb(chat_id=None).pack()))
         markup.row(InlineKeyboardButton(text="⬅️ Шаг назад", callback_data=chats_monitorings_cb))
 
         return markup.as_markup()

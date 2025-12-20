@@ -37,15 +37,15 @@ class Handlers:
             if not text:
                 logger.info("Сообщение не содержит текста, пропускаем")
                 return
-            
+
             message_key = f"{message.chat.id}:{message.id}"
             if message_key in Handlers._processed_messages:
                 logger.warning(f"[{instance_id}] ДУБЛИКАТ! Сообщение уже обработано: {message.link}")
                 return
-            
+
             logger.info(f"[{instance_id}] Добавляем сообщение в кэш: {message_key}")
             Handlers._processed_messages.add(message_key)
-            
+
             # Более частое и эффективное очищение кэша
             if len(Handlers._processed_messages) > Handlers._max_cache_size:
                 logger.info(f"[{instance_id}] Очищаем старые записи из кэша (было: {len(Handlers._processed_messages)})")
@@ -64,6 +64,44 @@ class Handlers:
                 return
 
             logger.info(f"Чат {message.chat.id} ({candidate.title}) найден в базе данных")
+
+            # Если у мониторинг чата есть централ чат то отправляем в него сообщение, если нет то логика прежняя
+            # Получаем central_chat_id мониторинг чата
+            monitoring_chat_central_id = candidate.central_chat_id
+            logger.info(f"Центральный чат мониторинга: {monitoring_chat_central_id}")
+
+            # Если у мониторинг чата не указан central_chat_id, идем дальше
+            if monitoring_chat_central_id:
+                logger.info(f"У мониторинг чата {candidate.telegram_id} найден central_chat_id: {monitoring_chat_central_id}")
+                keyword = None
+                processed_text = await preprocess_text(
+                    text.html,
+                    keyword,
+                    allowed_tags=["b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
+                    allowed_attrs={},
+                    platform="tg"
+                )
+
+                processed_text = await add_userbot_source_link(
+                    processed_text,
+                    candidate.title,
+                    candidate.link,
+                    message.chat.id
+                )
+
+                if message.media_group_id:
+                    await BotManager.send_media_group_from_userbot(
+                        monitoring_chat_central_id,
+                        client,
+                        message.chat.id,
+                        str(message.media_group_id),
+                        processed_text
+                    )
+                elif message.photo:
+                    await BotManager.send_photo_from_userbot(monitoring_chat_central_id, client, message, processed_text)
+                else:
+                    await BotManager.send_message(monitoring_chat_central_id, processed_text)
+                return
 
             keywords = await is_word_match(text, WordType.tg_keyword)
             if not keywords:
@@ -88,40 +126,26 @@ class Handlers:
                 if keyword.central_chat_id not in central_chats:
                     central_chats[keyword.central_chat_id] = []
                 central_chats[keyword.central_chat_id].append(keyword)
-            
+
             logger.info(f"Найдено {len(central_chats)} центральных чатов для отправки")
-            
-            # Получаем central_chat_id мониторинг чата
-            monitoring_chat_central_id = candidate.central_chat_id
-            logger.info(f"Центральный чат мониторинга: {monitoring_chat_central_id}")
-            
-            # Если у мониторинг чата не указан central_chat_id, пропускаем
-            if not monitoring_chat_central_id:
-                logger.info(f"У мониторинг чата {candidate.telegram_id} не указан central_chat_id, пропускаем")
-                return
-            
-            # Проверяем соответствие: central_chat_id ключевого слова должен совпадать с central_chat_id мониторинг чата
+
             target_central_chats = {}
             for central_chat_id, chat_keywords_list in central_chats.items():
-                # Проверяем, что central_chat_id из ключевого слова совпадает с central_chat_id мониторинг чата
-                if central_chat_id != monitoring_chat_central_id:
-                    logger.info(f"Центральный чат {central_chat_id} из ключевого слова не совпадает с central_chat_id мониторинг чата {monitoring_chat_central_id}, пропускаем")
-                    continue
-                
+
                 # Получаем центральный чат из БД и проверяем, что он существует и является центральным
                 central_chat = await ChatRepo.get_by_telegram_id(central_chat_id)
                 if not central_chat or not central_chat.is_central:
                     logger.info(f"Центральный чат {central_chat_id} не найден в БД или не является центральным, пропускаем")
                     continue
-                
+
                 target_central_chats[central_chat_id] = chat_keywords_list
-            
+
             logger.info(f"Используем центральные чаты после проверки соответствия: {list(target_central_chats.keys())}")
-            
+
             for central_chat_id, chat_keywords in target_central_chats.items():
                 logger.info(f"Отправляем сообщение в центральный чат {central_chat_id} (найдено {len(chat_keywords)} ключевых слов)")
                 keyword = chat_keywords[0]
-                
+
                 processed_text = await preprocess_text(
                     text.html,
                     keyword,
