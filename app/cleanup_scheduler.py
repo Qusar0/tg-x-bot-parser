@@ -139,6 +139,6 @@ class CleanupScheduler:
 # Глобальный экземпляр планировщика
 # Настройки можно изменить здесь или добавить в конфиг
 cleanup_scheduler = CleanupScheduler(
-    cleanup_interval_minutes=30,  # Очистка каждые 30 минут
+    cleanup_interval_minutes=1440,  # Очистка каждые 30 минут
     memory_check_interval_minutes=5  # Проверка памяти каждые 5 минут
 )
