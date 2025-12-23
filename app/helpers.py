@@ -8,17 +8,28 @@ from app.database.models.Word import Word
 from app.database.redis import redis_store
 from app.settings import settings
 
-POST_KEY = "post:{id}"
+POST_KEY = "post:{chat}:{id}"
 
 
-async def is_duplicate(id: str, original_text: str) -> bool:
+async def is_duplicate(id: str, original_text: str, chat_id: int | None = None) -> bool:
     original_text = original_text.lower()
     from loguru import logger
 
     try:
+        chat_key = chat_id if chat_id is not None else "global"
+        key = POST_KEY.format(chat=chat_key, id=id)
+
+        # 1. Быстрая проверка: уже есть запись с таким ID
+        # Если мы уже когда‑то обрабатывали этот твит (ID уникален),
+        # то независимо от изменений текста считаем его дубликатом.
+        existing_by_id = await redis_store.get_value(key)
+        if existing_by_id is not None:
+            logger.info(f"Найден дубликат по ID в Redis: {id}")
+            return True
+
         # Сначала проверяем, есть ли уже такой текст в Redis
         # Используем более эффективный подход - проверяем только недавние посты
-        recent_keys = await redis_store.keys(POST_KEY.format(id="*"))
+        recent_keys = await redis_store.keys(f"post:{chat_key}:*")
         
         if recent_keys:
             # Ограничиваем количество проверяемых ключей для производительности
@@ -30,7 +41,11 @@ async def is_duplicate(id: str, original_text: str) -> bool:
             # Получаем значения только для выбранных ключей
             texts = await redis_store.redis.mget(recent_keys) if recent_keys else []
             
-            logger.info(f"Проверяем дубликаты для ID: {id}, проверяем {len(texts)} из {len(await redis_store.keys(POST_KEY.format(id='*')))} текстов в Redis")
+            logger.info(
+                f"Проверяем дубликаты для ID: {id}, "
+                f"проверяем {len(texts)} из "
+                f"{len(await redis_store.keys(POST_KEY.format(chat=chat_key, id='*')))} текстов в Redis"
+            )
             
             # Проверяем, что texts не None и не пустой
             if texts:
@@ -39,9 +54,13 @@ async def is_duplicate(id: str, original_text: str) -> bool:
                         logger.info(f"Найден дубликат! ID: {id}, совпадение с текстом #{i}")
                         return True
 
-        # Сохраняем новый пост с TTL 2 часа
-        await redis_store.set_value_ex(POST_KEY.format(id=id), original_text, 60 * 60 * 2)
-        logger.info(f"Сохраняем новый пост в Redis: {id} (TTL: 2 часа)")
+        # Сохраняем новый пост с TTL 24 часа
+        # В XScrapper мы рассматриваем посты возрастом до 24 часов (см. parse_posts),
+        # поэтому, чтобы один и тот же твит не пересылался повторно в течение суток,
+        # TTL должен быть не меньше этого окна.
+        ttl_seconds = 60 * 60 * 24
+        await redis_store.set_value_ex(key, original_text, ttl_seconds)
+        logger.info(f"Сохраняем новый пост в Redis: {id} (chat={chat_key}) (TTL: 24 часа)")
         return False
     except Exception as e:
         # Если Redis недоступен, логируем ошибку и продолжаем без проверки дубликатов
@@ -49,9 +68,10 @@ async def is_duplicate(id: str, original_text: str) -> bool:
         return False
 
 
-async def get_fetched_post_ids():
-    keys: list[str] = await redis_store.keys(POST_KEY.format(id="*"))
-    return [key.split(":")[1] for key in keys]
+async def get_fetched_post_ids(chat_id: int | None = None):
+    chat_key = chat_id if chat_id is not None else "global"
+    keys: list[str] = await redis_store.keys(f"post:{chat_key}:*")
+    return [key.split(":")[2] for key in keys]
 
 
 async def cleanup_old_redis_data():

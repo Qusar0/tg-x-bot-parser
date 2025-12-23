@@ -15,6 +15,7 @@ from app.bot.callback_data import (
     x_channels_winrate_evaluation_cb,
     XChannelDeleteCb,
     XChannelRatingCb,
+    XChannelsShowNavCb,
 )
 from app.database.repo.XChannel import XChannelRepo
 from app.database.repo.Chat import ChatRepo
@@ -86,6 +87,35 @@ class Markup:
     @staticmethod
     def back_menu() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
+        markup.row(InlineKeyboardButton(text="⬅️ Вернуться назад", callback_data=x_channels_cb))
+        return markup.as_markup()
+
+    @staticmethod
+    def show_x_channels_nav(total: int, page: int, page_size: int) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+
+        has_prev = page > 0
+        has_next = (page + 1) * page_size < total
+
+        nav_buttons = []
+        if has_prev:
+            nav_buttons.append(
+                InlineKeyboardButton(
+                    text="«",
+                    callback_data=XChannelsShowNavCb(direction="left", page=page).pack(),
+                )
+            )
+        if has_next:
+            nav_buttons.append(
+                InlineKeyboardButton(
+                    text="»",
+                    callback_data=XChannelsShowNavCb(direction="right", page=page).pack(),
+                )
+            )
+
+        if nav_buttons:
+            markup.row(*nav_buttons)
+
         markup.row(InlineKeyboardButton(text="⬅️ Вернуться назад", callback_data=x_channels_cb))
         return markup.as_markup()
 

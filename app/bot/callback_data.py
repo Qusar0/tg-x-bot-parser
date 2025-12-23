@@ -95,6 +95,16 @@ class NavigationChatRemoveCb(CallbackData, prefix="navigation-remove-chat"):
     page: int
 
 
+class ChatsShowNavCb(CallbackData, prefix="csh-nav"):
+    direction: str  # "left" | "right"
+    page: int
+
+
+class XChannelsShowNavCb(CallbackData, prefix="xch-nav"):
+    direction: str  # "left" | "right"
+    page: int
+
+
 class ChangeSettingsCb(CallbackData, prefix="att"):
     field: str
     value: bool

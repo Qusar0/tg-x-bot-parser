@@ -30,6 +30,7 @@ from app.bot.callback_data import (
     ChatRatingCb,
     chats_winrate_evaluation_cb,
     chats_monitoring_delete_chat_cb,
+    ChatsShowNavCb,
 )
 from app.database.repo.Chat import ChatRepo
 from .phrases import cancel_chat_action
@@ -113,6 +114,35 @@ class Markup:
     @staticmethod
     def back_monitoring_chat() -> InlineKeyboardMarkup:
         markup = InlineKeyboardBuilder()
+        markup.row(InlineKeyboardButton(text="⬅️ Вернуться назад", callback_data=chats_monitorings_cb))
+        return markup.as_markup()
+
+    @staticmethod
+    def show_chats_nav(total: int, page: int, page_size: int) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardBuilder()
+
+        has_prev = page > 0
+        has_next = (page + 1) * page_size < total
+
+        nav_buttons = []
+        if has_prev:
+            nav_buttons.append(
+                InlineKeyboardButton(
+                    text="«",
+                    callback_data=ChatsShowNavCb(direction="left", page=page).pack(),
+                )
+            )
+        if has_next:
+            nav_buttons.append(
+                InlineKeyboardButton(
+                    text="»",
+                    callback_data=ChatsShowNavCb(direction="right", page=page).pack(),
+                )
+            )
+
+        if nav_buttons:
+            markup.row(*nav_buttons)
+
         markup.row(InlineKeyboardButton(text="⬅️ Вернуться назад", callback_data=chats_monitorings_cb))
         return markup.as_markup()
 

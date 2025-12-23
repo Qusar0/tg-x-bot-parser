@@ -3,6 +3,7 @@ import time
 import json
 import traceback
 import random
+from collections import defaultdict
 from xml.sax import default_parser_list
 from lxml import html
 from loguru import logger
@@ -96,9 +97,12 @@ class XScrapper:
                 await asyncio.sleep(10)
                 return
 
-            # Создаем словарь для поиска канала по URL
-            channels_dict = {channel.url: channel for channel in channels_data}
-            channels = [channel.url for channel in channels_data]
+            # Группируем каналы по URL, чтобы поддерживать привязку одного X-канала к нескольким центральным чатам
+            channels_by_url: dict[str, list] = defaultdict(list)
+            for channel in channels_data:
+                channels_by_url[channel.url].append(channel)
+
+            channels = list(channels_by_url.keys())
             logger.info(f"Найдено {len(channels)} X каналов для мониторинга: {channels}")
 
             for idx, channel_url in enumerate(channels, start=1):
@@ -109,8 +113,8 @@ class XScrapper:
                         await self.load_search_page()
 
                     await self.load_search_channel(channel_url)
-                    current_channel = channels_dict[channel_url]
-                    await self.parse_posts(stopwords, keywords, current_channel)
+                    current_channels = channels_by_url[channel_url]
+                    await self.parse_posts(stopwords, keywords, current_channels)
 
                 finally:
                     await asyncio.sleep(10)
@@ -119,10 +123,18 @@ class XScrapper:
             logger.error(ex)
             traceback.print_exc()
 
-    async def parse_posts(self, stopwords: list[Word], keywords: list[Word], current_channel=None):
+    async def parse_posts(self, stopwords: list[Word], keywords: list[Word], current_channels: list = None):
         """Поиск постов, сбор информации по определенному чату"""
-        FETCHED_CARDS = await get_fetched_post_ids()
-        logger.info(f"FETCHED_CARDS: {FETCHED_CARDS}")
+        current_channels = current_channels or []
+        central_channels = [ch for ch in current_channels if ch.central_chat_id]
+        chat_contexts = [ch.central_chat_id for ch in central_channels]
+        fetched_by_chat = {cid: await get_fetched_post_ids(cid) for cid in chat_contexts}
+        aggregated_fetched = set().union(*fetched_by_chat.values()) if fetched_by_chat else set()
+        if fetched_by_chat:
+            fetched_summary = {cid: len(ids) for cid, ids in fetched_by_chat.items()}
+            logger.info(f"FETCHED_CARDS по чатам: {fetched_summary}")
+        else:
+            logger.info("FETCHED_CARDS: []")
 
         #  Страница грузится на профиль где не сразу видно посты, флаг нужен для первого скрола, когда ничего не нашло
         begin_page = True
@@ -142,22 +154,21 @@ class XScrapper:
                     id = a_tag.get("href").split("/")[-1]
                     ids.append(id)
             logger.info(f"ids = {ids}")
-            if all(item in FETCHED_CARDS for item in ids) and not begin_page:
+            if aggregated_fetched and all(item in aggregated_fetched for item in ids) and not begin_page:
                 logger.info("Закончились посты по этому ключ-слову")
                 break
-            logger.info(f"FETCHED_CARDS: {FETCHED_CARDS}")
+            if aggregated_fetched:
+                logger.info(f"FETCHED_CARDS aggregated: {list(aggregated_fetched)}")
             for card in cards:
                 # Парс идентификатора и ссылки
                 a_tag = card.find("a", href=lambda x: x and "/status/" in x)
-                if a_tag:
-                    link = a_tag.get("href")
-                    id = link.split("/")[-1]
-                logger.info(f"Tweet ID = {id}, Link = {link}")
-
-                if id in FETCHED_CARDS:
-                    logger.info(f"id: {id} alrady in FETCHED_CARDS")
+                if not a_tag:
+                    logger.warning("Не найден идентификатор поста, пропускаем")
                     continue
-                FETCHED_CARDS.append(id)
+
+                link = a_tag.get("href")
+                id = link.split("/")[-1]
+                logger.info(f"Tweet ID = {id}, Link = {link}")
 
                 # Парс закрепа
                 is_pinned = any(
@@ -205,31 +216,41 @@ class XScrapper:
                         imgs.append(img["src"])
                 logger.info(f"{imgs}")
 
-                if current_channel and current_channel.central_chat_id:
-                    chat_id = current_channel.central_chat_id
+                matched_stopwords = await is_word_match(tweet_div, WordType.x_stopword)
 
-                    matched_stopwords = await is_word_match(tweet_div, WordType.x_stopword)
-                    if matched_stopwords:
-                        logger.info(f"Нашли стоп-слова в сообщении: {id}")
-                        continue
+                if central_channels:
+                    for channel in central_channels:
+                        chat_id = channel.central_chat_id
+                        fetched_ids = fetched_by_chat.get(chat_id, [])
+                        if id in fetched_ids:
+                            logger.info(f"id: {id} already in FETCHED_CARDS for chat {chat_id}")
+                            continue
+                        fetched_ids.append(id)
+                        fetched_by_chat[chat_id] = fetched_ids
+                        aggregated_fetched.add(id)
 
-                    if await is_duplicate(id, tweet_text):
-                        logger.info(f"Сообщение дубликат: {id}")
-                        continue
-                    keyword = None
-                    processed_text = await preprocess_text(tweet_div, keyword, platform="x")
-                    channel_rating = current_channel.rating if current_channel else 0
-                    channel_winrate = current_channel.winrate if current_channel else 0
-                    processed_text = await add_x_link(processed_text, link, channel_rating, channel_winrate)
-                    if len(imgs) > 1:
-                        await queue.call(
-                            (BotManager.send_media_group, chat_id, imgs, processed_text)
-                        )
+                        if matched_stopwords:
+                            logger.info(f"Нашли стоп-слова в сообщении: {id}")
+                            continue
 
-                    elif len(imgs) == 1:
-                        await queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
-                    else:
-                        await queue.call((BotManager.send_message, chat_id, processed_text))
+                        if await is_duplicate(id, tweet_text, chat_id=chat_id):
+                            logger.info(f"Сообщение дубликат: {id} для чата {chat_id}")
+                            continue
+                        keyword = None
+                        processed_text = await preprocess_text(tweet_div, keyword, platform="x")
+                        channel_rating = channel.rating if channel else 0
+                        channel_winrate = channel.winrate if channel else 0
+                        processed_text = await add_x_link(processed_text, link, channel_rating, channel_winrate)
+                        if len(imgs) > 1:
+                            await queue.call(
+                                (BotManager.send_media_group, chat_id, imgs, processed_text)
+                            )
+
+                        elif len(imgs) == 1:
+                            await queue.call((BotManager.send_photo, chat_id, imgs[0], processed_text))
+                        else:
+                            await queue.call((BotManager.send_message, chat_id, processed_text))
+                    # если канал привязан к центральным чатам, пропускаем дальнейшую обработку через ключевые слова
                     continue
 
                 # СЛУЧАЙ 2: Ищем ключевые слова
@@ -247,16 +268,14 @@ class XScrapper:
                     continue
 
                 # Проверяем стоп-слова и дубликаты (ОДИН РАЗ для поста)
-                matched_stopwords = await is_word_match(tweet_div, WordType.x_stopword)
                 if matched_stopwords:
                     logger.info(f"Нашли стоп-слова в сообщении: {id}")
                     continue
 
-                if await is_duplicate(id, tweet_text):
-                    logger.info(f"Сообщение дубликат: {id}")
-                    continue
-
                 for chat_id in target_chats:
+                    if await is_duplicate(id, tweet_text, chat_id=chat_id):
+                        logger.info(f"Сообщение дубликат: {id} для чата {chat_id}")
+                        continue
                     # Можно использовать первое подходящее ключевое слово или все
                     keyword_for_processing = matched_keywords[0] if matched_keywords else None
                     processed_text = await preprocess_text(tweet_div, keyword_for_processing, platform="x")

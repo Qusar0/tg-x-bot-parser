@@ -63,19 +63,19 @@ async def process_manual_x_channel_input(message: types.Message, state: FSMConte
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
 
-        # Проверяем, что канал не существует
-        existing_channel = await XChannelRepo.get_by_url(url)
+        # Получаем выбранный центральный чат из state
+        data = await state.get_data()
+        central_chat_id = data.get('target_chat_id')
+
+        # Проверяем, что канал не существует для выбранного чата
+        existing_channel = await XChannelRepo.get_by_url_and_central_chat(url, central_chat_id)
         if existing_channel:
             await message.answer(
-                f"❌ Канал с URL {url} уже существует",
+                f"❌ Канал с URL {url} уже существует для выбранного центрального чата",
                 reply_markup=Markup.back_menu()
             )
             return
 
-        # Получаем central_chat_id из state
-        data = await state.get_data()
-        central_chat_id = data.get('target_chat_id')
-        
         # Добавляем канал
         channel = await XChannelRepo.add(title, url, central_chat_id=central_chat_id)
         # await message.answer()

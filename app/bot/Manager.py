@@ -1,13 +1,14 @@
 import asyncio
 import aiohttp
+import os
 from aiogram.utils.media_group import MediaGroupBuilder
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from loguru import logger
 from app.bot.loader import bot
 from app.helpers import check_valid_photo
 from app.database.repo.Chat import ChatRepo
 from aiogram.types import FSInputFile
 from aiogram.types.input_file import BufferedInputFile
-import os
 
 
 class BotManager:
