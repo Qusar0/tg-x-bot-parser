@@ -138,6 +138,8 @@ class XScrapper:
 
         #  Страница грузится на профиль где не сразу видно посты, флаг нужен для первого скрола, когда ничего не нашло
         begin_page = True
+        empty_scrolls_count = 0  # Счетчик пустых скроллов подряд
+        max_empty_scrolls = 5  # Максимальное количество пустых скроллов перед выходом
         while True:
             exit_loop = False
 
@@ -154,6 +156,20 @@ class XScrapper:
                     id = a_tag.get("href").split("/")[-1]
                     ids.append(id)
             logger.info(f"ids = {ids}")
+            
+            # Если посты не найдены, увеличиваем счетчик
+            if not ids:
+                empty_scrolls_count += 1
+                logger.warning(f"Посты не найдены. Пустых скроллов подряд: {empty_scrolls_count}/{max_empty_scrolls}")
+                # Если посты не найдены после нескольких попыток скролла, выходим
+                # (даже если это была первая страница, после скролла begin_page станет False)
+                if empty_scrolls_count >= max_empty_scrolls:
+                    logger.info("Посты не найдены после нескольких попыток скролла. Выходим из цикла.")
+                    break
+            else:
+                # Если нашли посты, сбрасываем счетчик
+                empty_scrolls_count = 0
+                
             if aggregated_fetched and all(item in aggregated_fetched for item in ids) and not begin_page:
                 logger.info("Закончились посты по этому ключ-слову")
                 break
