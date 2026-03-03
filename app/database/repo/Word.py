@@ -10,6 +10,11 @@ class WordRepo:
         return words
 
     @staticmethod
+    async def get_all_from_central_id(word_type: WordType, cenral_chat_id: int) -> list[Word]:
+        words = await Word.filter(word_type=word_type, cenral_chat_id=cenral_chat_id).all()
+        return words
+
+    @staticmethod
     async def get_one(title: str, word_type: WordType) -> Word | None:
         word = await Word.filter(title=title, word_type=word_type).first()
         return word

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from app.database.repo.Word import WordRepo
 from app.database.models.Word import Word
 from app.enums import WordType
@@ -24,8 +26,11 @@ def get_matched_words(text: str, words: list[Word]) -> list[Word]:
     return matched_words
 
 
-async def is_word_match(text: str, word_type: WordType) -> list[Word]:
-    words = await WordRepo.get_all(word_type)
+async def is_word_match(text: str, word_type: WordType, central_chat_id: Optional[int] = None) -> list[Word]:
+    if central_chat_id:
+        words = await WordRepo.get_all_from_central_id(word_type, central_chat_id)
+    else:
+        words = await WordRepo.get_all(word_type)
     matched_words = get_matched_words(text, words)
 
     return matched_words

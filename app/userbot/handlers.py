@@ -89,7 +89,7 @@ class Handlers:
                     message.chat.id
                 )
 
-                stopwords = await is_word_match(text, WordType.tg_stopword)
+                stopwords = await is_word_match(text, WordType.tg_stopword, monitoring_chat_central_id)
                 if stopwords:
                     logger.info(f"Найдены стоп-слова, пропускаем сообщение: {[sw.title for sw in stopwords]}")
                     return
