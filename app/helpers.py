@@ -294,25 +294,38 @@ def remove_keywords(text: str, keyword):
     Удаляет ключевые слова из текста.
     Работает с HTML разметкой и удаляет слова с учетом границ слов.
     Сохраняет форматирование и переносы строк.
+    Корректно обрабатывает смайлики и спецсимволы.
     """
     soup = BeautifulSoup(text, "html.parser")
+
+    # Получаем ключевое слово как строку
+    kw = keyword if isinstance(keyword, str) else keyword.title
+
+    # Экранируем спецсимволы в ключевом слове
+    escaped_kw = re.escape(kw)
+
+    # Паттерн для поиска слова с границами слов
+    # Используем negative lookbehind и lookahead для Unicode символов
+    pattern = r'(?<!\w)' + escaped_kw + r'(?!\w)'
 
     for element in soup.find_all(string=True):
         if not element.strip():
             continue
 
-        new_text = element
-        kw = keyword.title
+        original_text = element
 
-        pattern = r'\b' + re.escape(kw) + r'\b[ \t,\.!?;:]*'
+        # Удаляем ключевое слово
+        new_text = re.sub(pattern, '', original_text, flags=re.UNICODE | re.IGNORECASE)
 
-        new_text = re.sub(pattern, '', new_text, flags=re.IGNORECASE)
+        # Удаляем возможные пробелы после удаленного слова
+        new_text = re.sub(r' +', ' ', new_text)  # множественные пробелы -> один пробел
+        new_text = re.sub(r'\n\s+', '\n', new_text)  # пробелы после переноса строки
+        new_text = re.sub(r'\s+\n', '\n', new_text)  # пробелы перед переносом строки
+        new_text = re.sub(r'[ \t]+$', '', new_text, flags=re.MULTILINE)  # пробелы в конце строк
 
-        new_text = re.sub(r'[ \t]+', ' ', new_text)
-        new_text = re.sub(r'\n\s+', '\n', new_text)
-        new_text = re.sub(r'\s+\n', '\n', new_text)
-
-        element.replace_with(new_text)
+        # Если текст изменился, заменяем его
+        if new_text != original_text:
+            element.replace_with(new_text)
 
     return str(soup)
 
