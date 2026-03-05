@@ -2,6 +2,7 @@ import re
 import aiohttp
 import bleach
 import html
+from typing import Optional
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from app.database.models.Word import Word
@@ -322,6 +323,7 @@ async def preprocess_text(
     allowed_tags=["a", "b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
     allowed_attrs={"a": ["href"]},
     platform: str = "tg",  # "tg" или "x"
+    central_chat_id: Optional[int] = None,  # Если есть централ чат берем фильтр слова по нему
 ) -> str:
     text = text.replace("<br/>", "\n").replace("<br>", "\n")
     text = text.replace("</p>", "\n").replace("<p>", "")
@@ -339,13 +341,16 @@ async def preprocess_text(
 
     from app.database.repo.Word import WordRepo
     from app.enums import WordType
-    
+
     # Выбираем фильтр-слова в зависимости от платформы
     if platform == "tg":
-        filter_words = await WordRepo.get_all(WordType.tg_filter_word)
+        if central_chat_id:
+            filter_words = await WordRepo.get_all_from_central_id(WordType.tg_filter_word, central_chat_id)
+        else:
+            filter_words = await WordRepo.get_all(WordType.tg_filter_word)
     else:  # x
         filter_words = await WordRepo.get_all(WordType.x_filter_word)
-    
+
     for filter_word in filter_words:
         text = remove_keywords(text, filter_word)
 
