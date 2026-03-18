@@ -26,6 +26,7 @@ from app.helpers import (
 )
 from app.userbot.filters.is_word_match import is_word_match
 from app.queue import queue
+from app.config import config
 
 with open("x_cookies.txt") as file:
     COOKIE_JSON = file.read().rstrip()
@@ -60,9 +61,9 @@ class XScrapper:
             headless=True,
             args=browser_args,
             proxy={
-                "server": "http://130.254.41.43:6663",
-                "username": "user239081",
-                "password": "6iogl9"
+                "server": f"{config.proxy.type}://{config.proxy.host}:{config.proxy.port}",
+                "username": {config.proxy.username},
+                "password": {config.proxy.password}
             }
         )
         self.context = await self.browser.new_context()
