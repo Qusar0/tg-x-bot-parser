@@ -79,7 +79,8 @@ class Handlers:
                     keyword,
                     allowed_tags=["b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
                     allowed_attrs={},
-                    platform="tg"
+                    platform="tg",
+                    central_chat_id=monitoring_chat_central_id
                 )
 
                 processed_text = await add_userbot_source_link(

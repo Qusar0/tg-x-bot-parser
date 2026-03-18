@@ -2,6 +2,7 @@ import re
 import aiohttp
 import bleach
 import html
+from typing import Optional
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from app.database.models.Word import Word
@@ -191,7 +192,7 @@ async def add_x_link(text: str, link: str, channel_rating: int = 0, channel_winr
     soup.append("\n\n")
     soup.append(rating_element)
     soup.append("\n")
-    winrate_text = f"%{channel_winrate}" if channel_winrate > 0 else "❌"
+    winrate_text = f"{channel_winrate}%" if channel_winrate > 0 else "❌"
     winrate_element = soup.new_string(f"Winrate: {winrate_text}\n")
     soup.append(winrate_element)
     soup.append("\n")
@@ -242,7 +243,7 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
     rating_text = f"⭐{rating}" if rating > 0 else "❌"
     rating_element = soup.new_string(f"Rating: {rating_text}\n")
 
-    winrate_text = f"%{winrate}" if winrate > 0 else "❌"
+    winrate_text = f"{winrate}%" if winrate > 0 else "❌"
     winrate_element = soup.new_string(f"Winrate: {winrate_text}\n")
 
     soup.append("\n\n")
@@ -293,25 +294,38 @@ def remove_keywords(text: str, keyword):
     Удаляет ключевые слова из текста.
     Работает с HTML разметкой и удаляет слова с учетом границ слов.
     Сохраняет форматирование и переносы строк.
+    Корректно обрабатывает смайлики и спецсимволы.
     """
     soup = BeautifulSoup(text, "html.parser")
+
+    # Получаем ключевое слово как строку
+    kw = keyword if isinstance(keyword, str) else keyword.title
+
+    # Экранируем спецсимволы в ключевом слове
+    escaped_kw = re.escape(kw)
+
+    # Паттерн для поиска слова с границами слов
+    # Используем negative lookbehind и lookahead для Unicode символов
+    pattern = r'(?<!\w)' + escaped_kw + r'(?!\w)'
 
     for element in soup.find_all(string=True):
         if not element.strip():
             continue
 
-        new_text = element
-        kw = keyword.title
+        original_text = element
 
-        pattern = r'\b' + re.escape(kw) + r'\b[ \t,\.!?;:]*'
+        # Удаляем ключевое слово
+        new_text = re.sub(pattern, '', original_text, flags=re.UNICODE | re.IGNORECASE)
 
-        new_text = re.sub(pattern, '', new_text, flags=re.IGNORECASE)
+        # Удаляем возможные пробелы после удаленного слова
+        new_text = re.sub(r' +', ' ', new_text)  # множественные пробелы -> один пробел
+        new_text = re.sub(r'\n\s+', '\n', new_text)  # пробелы после переноса строки
+        new_text = re.sub(r'\s+\n', '\n', new_text)  # пробелы перед переносом строки
+        new_text = re.sub(r'[ \t]+$', '', new_text, flags=re.MULTILINE)  # пробелы в конце строк
 
-        new_text = re.sub(r'[ \t]+', ' ', new_text)
-        new_text = re.sub(r'\n\s+', '\n', new_text)
-        new_text = re.sub(r'\s+\n', '\n', new_text)
-
-        element.replace_with(new_text)
+        # Если текст изменился, заменяем его
+        if new_text != original_text:
+            element.replace_with(new_text)
 
     return str(soup)
 
@@ -322,6 +336,7 @@ async def preprocess_text(
     allowed_tags=["a", "b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
     allowed_attrs={"a": ["href"]},
     platform: str = "tg",  # "tg" или "x"
+    central_chat_id: Optional[int] = None,  # Если есть централ чат берем фильтр слова по нему
 ) -> str:
     text = text.replace("<br/>", "\n").replace("<br>", "\n")
     text = text.replace("</p>", "\n").replace("<p>", "")
@@ -339,13 +354,16 @@ async def preprocess_text(
 
     from app.database.repo.Word import WordRepo
     from app.enums import WordType
-    
+
     # Выбираем фильтр-слова в зависимости от платформы
     if platform == "tg":
-        filter_words = await WordRepo.get_all(WordType.tg_filter_word)
+        if central_chat_id:
+            filter_words = await WordRepo.get_all_from_central_id(WordType.tg_filter_word, central_chat_id)
+        else:
+            filter_words = await WordRepo.get_all(WordType.tg_filter_word)
     else:  # x
         filter_words = await WordRepo.get_all(WordType.x_filter_word)
-    
+
     for filter_word in filter_words:
         text = remove_keywords(text, filter_word)
 
