@@ -1,8 +1,10 @@
 from aiogram import types
 from aiogram.filters import Command
+from app.bot.routers.admin.tg_parser.signals_parser_4_n8n import ChannelHistoryParser
 from loguru import logger
 
 from app.bot.routers.admin import admin_router
+from app.bot.utils.n8n_client import N8NClient
 
 
 @admin_router.message(Command("check"))
@@ -28,6 +30,42 @@ async def check_channel_handler(message: types.Message):
     )
 
     await message.answer(
-        f"✅ Команда принята. Канал: <code>{channel}</code>\n"
-        f"Пока что только логирую вызов."
+        f"✅ Проверка канала <code>{channel}</code> запущена\n"
+        f"⏳ Запускаю проверку..."
     )
+
+    # return {
+    #     "ok": True,
+    #     "channel": channel,
+    #     "posts_count": len(posts),
+    #     "posts": posts,
+    # }
+
+    client = N8NClient()
+    try:
+        
+        async with ChannelHistoryParser() as parser:
+            posts = await parser.get_last_posts(channel=channel, limit=5)
+            # /check @cryptosignal
+
+            result = await client.check_channel(
+                channel=channel,
+                requested_by=message.from_user.id,
+                chat_id=message.chat.id,
+                # posts=posts
+            )
+        
+            stub_winrate = result.get("stub_winrate", "N/A")
+
+            await message.answer(
+                f"✅ Проверка канала <code>{channel}</code> завершена\n"
+                f"n8n ответил успешно\n"
+                f"stub_winrate: {stub_winrate}%"
+            )
+    except Exception as ex:
+        logger.exception("Ошибка при вызове n8n для /check")
+
+        await message.answer(
+            f"❌ Не удалось получить ответ от n8n\n"
+            f"<code>{ex}</code>"
+        )

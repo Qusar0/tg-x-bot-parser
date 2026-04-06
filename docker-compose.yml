@@ -28,13 +28,42 @@ services:
       - ./downloads:/app/downloads
     depends_on:
       - redis
+      - n8n
     restart: unless-stopped
     networks:
       - tg-x-bot-network
     command: bash -c "python -m app --mode=dev --client=bot & python -m app --mode=dev --client=xscrapper && wait"
 
+  # n8n сервис
+  n8n:
+    image: n8nio/n8n:2.14.2
+    container_name: tg-x-bot-n8n
+    env_file:
+      - .env
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: ${N8N_PORT}
+      N8N_PROTOCOL: ${N8N_PROTOCOL}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE}
+      TZ: ${TZ}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: ${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+      N8N_RUNNERS_ENABLED: ${N8N_RUNNERS_ENABLED}
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - tg-x-bot-network
+    restart: unless-stopped
+
 volumes:
   redis_data:
+  n8n_data:
 
 networks:
   tg-x-bot-network:

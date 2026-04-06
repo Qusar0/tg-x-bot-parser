@@ -45,12 +45,20 @@ class Proxy:
 
 
 @dataclass
+class N8n:
+    check_channel_webhook_url: str
+    check_channel_timeout_seconds: int
+    check_channel_shared_secrets: str
+
+
+@dataclass
 class Config:
     bot: Bot
     userbot: Userbot
     db: DbConfig
     redis: Redis
     proxy: Proxy
+    n8n: N8n
 
     def get_sleep_time(self) -> int:
         return random.randint(1, 2)
@@ -84,6 +92,11 @@ def check_values():
         assert config.get("proxy", "username"), "Отсутствует значение username в конфигурационном файле"
         assert config.get("proxy", "password"), "Отсутствует значение password в конфигурационном файле"
 
+        assert "n8n" in config.sections(), "Отсутствует секция [n8n] в конфигурационном файле"
+        assert config.get("n8n", "check_channel_webhook_url"), "Отсутствует значение check_channel_webhook_url в конфигурационном файле"
+        assert config.get("n8n", "check_channel_timeout_seconds"), "Отсутствует значение check_channel_timeout_seconds в конфигурационном файле"
+        assert config.get("n8n", "check_channel_shared_secrets"), "Отсутствует значение check_channel_shared_secrets в конфигурационном файле"
+
     except AssertionError as e:
         print("Ошибка:", e)
         time.sleep(10)  # Задержка на 10 секунд
@@ -102,6 +115,7 @@ def load_config():
     bot = config["bot"]
     redis = config["redis"]
     proxy_data = config['proxy']
+    n8n = config['n8n']
 
     return Config(
         bot=Bot(
@@ -125,7 +139,12 @@ def load_config():
             port=proxy_data['port'],
             username=proxy_data['username'],
             password=proxy_data['password'],
-            url=f'{proxy_data['type']}://{proxy_data['username']}:{proxy_data['password']}@{proxy_data['host']}:{proxy_data['port']}'
+            url=f"{proxy_data['type']}://{proxy_data['username']}:{proxy_data['password']}@{proxy_data['host']}:{proxy_data['port']}"
+        ),
+        n8n=N8n(
+            check_channel_webhook_url=n8n['check_channel_webhook_url'],
+            check_channel_timeout_seconds=n8n['check_channel_timeout_seconds'],
+            check_channel_shared_secrets=n8n['check_channel_shared_secrets'],
         ),
     )
 
