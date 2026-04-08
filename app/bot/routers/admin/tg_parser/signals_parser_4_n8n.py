@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import mimetypes
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Any
@@ -12,6 +13,16 @@ from app.config import config
 
 
 @dataclass
+class ChannelMedia:
+    filename: str
+    mime_type: str
+    content: bytes
+
+    def size(self) -> int:
+        return len(self.content)
+
+
+@dataclass
 class ChannelPost:
     message_id: int
     date: str | None
@@ -20,13 +31,26 @@ class ChannelPost:
     chat_username: str | None
     text: str | None
     caption: str | None
+
     has_photo: bool
-    has_document: bool
     has_video: bool
-    media_group_id: str | None
+    has_document: bool
+
+    media_type: str | None
+    media: ChannelMedia | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        if self.media:
+            data["media"] = {
+                "filename": self.media.filename,
+                "mime_type": self.media.mime_type,
+                "size": self.media.size(),
+            }
+        return data
+
+    def __repr__(self):
+        return f"\n\t{{'message_id': {self.message_id}, 'date': {self.date}, 'chat_id': {self.chat_id}, 'chat_title': {self.chat_title}, 'chat_username': {self.chat_username}, 'text': \"... ...\", 'caption': \"... ...\", 'has_photo': {self.has_photo}, 'has_document': {self.has_document}, 'has_video': {self.has_video}, 'media_type': {self.media_type}, 'media': {self.media}}}"
 
 
 class ChannelHistoryParser:
@@ -35,16 +59,25 @@ class ChannelHistoryParser:
 
     @property
     def session_name(self) -> str:
-        # Используем уже существующий session-файл userbot_pyrogram.session
         return "userbot_pyrogram"
 
     def _build_client(self) -> Client:
+        proxy = {
+            "scheme": "http",
+            "hostname": "130.254.41.43",
+            "port": 6663,
+            "username": "user239081",
+            "password": "6iogl9",
+        }
+
         return Client(
             name=self.session_name,
             api_id=config.userbot.api_id,
             api_hash=config.userbot.api_hash,
             phone_number=config.userbot.phone_number,
             workdir=".",
+            proxy=proxy,
+            no_updates=True
         )
 
     async def start(self) -> None:
@@ -59,8 +92,14 @@ class ChannelHistoryParser:
         if self._client is None:
             return
 
-        await self._client.stop()
+        client = self._client
         self._client = None
+
+        try:
+            await client.stop()
+        except OSError as ex:
+            logger.warning("Pyrogram stop завершился с сетевым исключением: {}", ex)
+
         logger.info("Клиент pyrogram userbot остановлен")
 
     async def __aenter__(self) -> "ChannelHistoryParser":
@@ -85,7 +124,39 @@ class ChannelHistoryParser:
         return channel.strip("/")
 
     @staticmethod
-    def _message_to_post(message) -> ChannelPost:
+    def _detect_media_type(message) -> str | None:
+        '''
+        Настраиваю обнаружение только фотографий
+        '''
+        if message.photo:
+            return "photo"
+        # if message.video:
+        #     return "video"
+        # if message.document:
+        #     return "document"
+        return None
+
+    async def _download_media_in_memory(self, message) -> ChannelMedia | None:
+        media_type = self._detect_media_type(message)
+        if media_type is None:
+            return None
+
+        file_obj = await self._client.download_media(message, in_memory=True)
+        if file_obj is None:
+            return None
+
+        content = file_obj.getvalue() if hasattr(file_obj, "getvalue") else bytes(file_obj.getbuffer())
+
+        filename = getattr(file_obj, "name", None) or f"{message.chat.id}_{message.id}"
+        mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+        return ChannelMedia(
+            filename=filename,
+            mime_type=mime_type,
+            content=content,
+        )
+
+    def _message_to_post(self, message, media) -> ChannelPost:
         return ChannelPost(
             message_id=message.id,
             date=message.date.isoformat() if isinstance(message.date, datetime) else None,
@@ -95,12 +166,18 @@ class ChannelHistoryParser:
             text=message.text,
             caption=message.caption,
             has_photo=message.photo is not None,
-            has_document=message.document is not None,
             has_video=message.video is not None,
-            media_group_id=str(message.media_group_id) if message.media_group_id else None,
+            has_document=message.document is not None,
+            media_type=self._detect_media_type(message),
+            media=media,
         )
 
-    async def get_last_posts(self, channel: str, limit: int = 50) -> list[dict[str, Any]]:
+    async def get_last_posts(
+        self,
+        channel: str,
+        limit: int = 20,
+        load_media_binary: bool = False,
+    ) -> list[ChannelPost]:
         if limit <= 0:
             raise ValueError("limit must be > 0")
 
@@ -113,16 +190,15 @@ class ChannelHistoryParser:
             normalized_channel,
             limit,
         )
-
-        posts: list[dict[str, Any]] = []
+        posts: list[ChannelPost] = []
 
         try:
             async for message in self._client.get_chat_history(normalized_channel, limit=limit):
-                # Пропускаем служебные пустые сообщения
-                if not any([message.text, message.caption, message.photo, message.document, message.video]):
-                    continue
+                media = None
+                if load_media_binary:
+                    media = await self._download_media_in_memory(message)
 
-                posts.append(self._message_to_post(message).to_dict())
+                posts.append(self._message_to_post(message, media))
 
         except UsernameNotOccupied as ex:
             raise ValueError(f"Channel @{normalized_channel} does not exist") from ex

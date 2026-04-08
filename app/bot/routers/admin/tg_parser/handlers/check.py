@@ -31,36 +31,60 @@ async def check_channel_handler(message: types.Message):
 
     await message.answer(
         f"✅ Проверка канала <code>{channel}</code> запущена\n"
-        f"⏳ Запускаю проверку..."
+        f"⏳ Выполняю сбор постов..."
     )
-
-    # return {
-    #     "ok": True,
-    #     "channel": channel,
-    #     "posts_count": len(posts),
-    #     "posts": posts,
-    # }
 
     client = N8NClient()
     try:
         
         async with ChannelHistoryParser() as parser:
-            posts = await parser.get_last_posts(channel=channel, limit=5)
+            posts = await parser.get_last_posts(channel=channel, limit=10, load_media_binary=True)
             # /check @cryptosignal
 
-            result = await client.check_channel(
+            posts_payload = []
+            media_files = {}
+            for post_obj in posts:
+                media_filename = None
+
+                if post_obj.media:
+                    media_filename = f"media/{post_obj.media.filename}"
+                    media_files[media_filename] = post_obj.media.content
+
+                post = {
+                    "message_id": post_obj.message_id,
+                    "date": post_obj.date,
+                    "chat_id": post_obj.chat_id,
+                    "chat_title": post_obj.chat_title,
+                    "chat_username": post_obj.chat_username,
+                    "text": post_obj.text,
+                    "caption": post_obj.caption,
+                    "has_photo": post_obj.has_photo,
+                    "has_video": post_obj.has_video,
+                    "has_document": post_obj.has_document,
+                    "media_type": post_obj.media_type,
+                    "media_filename": media_filename,
+                }
+
+                posts_payload.append(post)
+            
+            await message.answer(
+                f"✅ Сбор постов канала <code>{channel}</code> завершен\n"
+                f"\tУспешно собрано {len(posts)} сообщений\n"
+                f"⏳ Запускаю проверку постов..."
+            )
+
+            result = await client.send_posts_batch(
                 channel=channel,
-                requested_by=message.from_user.id,
-                chat_id=message.chat.id,
-                # posts=posts
+                posts=posts_payload,
+                media_files=media_files,
             )
         
             stub_winrate = result.get("stub_winrate", "N/A")
 
             await message.answer(
-                f"✅ Проверка канала <code>{channel}</code> завершена\n"
-                f"n8n ответил успешно\n"
-                f"stub_winrate: {stub_winrate}%"
+                f"✅ Проверка постов канала <code>{channel}</code> завершена\n"
+                f"\tn8n ответил успешно\n"
+                f"\tstub_winrate: {stub_winrate}% (Общее кол-во постов: {len(posts)})"
             )
     except Exception as ex:
         logger.exception("Ошибка при вызове n8n для /check")
