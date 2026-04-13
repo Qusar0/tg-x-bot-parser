@@ -5,6 +5,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Any
 
+from app.userbot.userbot_manager import userbot_manager
 from loguru import logger
 from pyrogram import Client
 from pyrogram.errors import UsernameNotOccupied, PeerIdInvalid, FloodWait
@@ -57,50 +58,15 @@ class ChannelHistoryParser:
     def __init__(self) -> None:
         self._client: Client | None = None
 
-    @property
-    def session_name(self) -> str:
-        return "userbot_pyrogram"
-
-    def _build_client(self) -> Client:
-        proxy = {
-            "scheme": "http",
-            "hostname": "130.254.41.43",
-            "port": 6663,
-            "username": "user239081",
-            "password": "6iogl9",
-        }
-
-        return Client(
-            name=self.session_name,
-            api_id=config.userbot.api_id,
-            api_hash=config.userbot.api_hash,
-            phone_number=config.userbot.phone_number,
-            workdir=".",
-            proxy=proxy,
-            no_updates=True
-        )
-
     async def start(self) -> None:
         if self._client is not None:
             return
 
-        self._client = self._build_client()
-        await self._client.start()
-        logger.info("Клиент pyrogram userbot запущен")
+        self._client = userbot_manager.client
 
     async def stop(self) -> None:
         if self._client is None:
             return
-
-        client = self._client
-        self._client = None
-
-        try:
-            await client.stop()
-        except OSError as ex:
-            logger.warning("Pyrogram stop завершился с сетевым исключением: {}", ex)
-
-        logger.info("Клиент pyrogram userbot остановлен")
 
     async def __aenter__(self) -> "ChannelHistoryParser":
         await self.start()
@@ -217,3 +183,25 @@ class ChannelHistoryParser:
         )
 
         return posts
+
+    @staticmethod
+    def make_post_obj_sendable(post_obj : ChannelPost) -> dict:
+        media_filename = None
+
+        if post_obj.media:
+            media_filename = f"media/{post_obj.media.filename}"
+
+        return {
+            "message_id": post_obj.message_id,
+            "date": post_obj.date,
+            "chat_id": post_obj.chat_id,
+            "chat_title": post_obj.chat_title,
+            "chat_username": post_obj.chat_username,
+            "text": post_obj.text,
+            "caption": post_obj.caption,
+            "has_photo": post_obj.has_photo,
+            "has_video": post_obj.has_video,
+            "has_document": post_obj.has_document,
+            "media_type": post_obj.media_type,
+            "media_filename": media_filename,
+        }

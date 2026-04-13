@@ -14,7 +14,7 @@ class UserbotManager:
         proxy = {
             "scheme": config.proxy.type,
             "hostname": config.proxy.host,
-            "port": config.proxy.port,
+            "port": int(config.proxy.port),
             "username": config.proxy.username,
             "password": config.proxy.password,
         }
