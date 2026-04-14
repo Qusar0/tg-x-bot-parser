@@ -43,6 +43,7 @@ services:
     ports:
       - "5678:5678"
     environment:
+      NODES_EXCLUDE: "[]"
       N8N_DEFAULT_BINARY_DATA_MODE: ${N8N_DEFAULT_BINARY_DATA_MODE}
       N8N_PAYLOAD_SIZE_MAX: ${N8N_PAYLOAD_SIZE_MAX}
       N8N_HOST: ${N8N_HOST}
@@ -58,6 +59,7 @@ services:
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
     volumes:
+      - ./init-n8n-workflows:/init-workflows
       - n8n_data:/home/node/.n8n
     networks:
       - tg-x-bot-network
