@@ -13,7 +13,7 @@ class N8NClient:
         self.timeout_seconds = int(config.n8n.check_channel_timeout_seconds)
         self.shared_secret = config.n8n.check_channel_shared_secrets
 
-    async def send_posts_batch(self, channel: str, posts: list[dict], media_files: dict[str, bytes] | None = None) -> dict:
+    async def send_posts_batch(self, channel: str, posts: list[dict], media_files: dict[str, bytes] | None = None, from_id: int | None = None) -> dict:
         if not self.webhook_url:
             raise RuntimeError("N8N_CHECK_WEBHOOK_URL is not set")
 
@@ -21,6 +21,7 @@ class N8NClient:
         bundle_bytes = self._build_bundle_zip(
             channel=channel,
             request_id=request_id,
+            from_id=from_id,
             posts=posts,
             media_files=media_files or {},
         )
@@ -60,6 +61,7 @@ class N8NClient:
     def _build_bundle_zip(
         channel: str,
         request_id: str,
+        from_id: int,
         posts: list[dict],
         media_files: dict[str, bytes],
     ) -> bytes:
@@ -68,6 +70,7 @@ class N8NClient:
         manifest = {
             "channel": channel,
             "request_id": request_id,
+            "from_id": from_id,
             "posts": posts,
         }
 

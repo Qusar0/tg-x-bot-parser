@@ -31,14 +31,14 @@ async def check_channel_handler(message: types.Message):
     )
 
     await message.answer(
-        f"✅ Проверка канала <code>{channel}</code> запущена\n"
+        f"🕐 Проверка канала <code>{channel}</code> запущена\n"
         f"⏳ Выполняю сбор постов..."
     )
 
     posts = None
     try:
         async with ChannelHistoryParser() as parser:
-            posts = await parser.get_last_posts(channel=channel, limit=7, load_media_binary=True)
+            posts = await parser.get_last_posts(channel=channel, limit=25, load_media_binary=False)
 
             posts_payload = []
             media_files = {}
@@ -51,7 +51,7 @@ async def check_channel_handler(message: types.Message):
                 posts_payload.append(post)
             
             await message.answer(
-                f"✅ Сбор постов канала <code>{channel}</code> завершен\n"
+                f"🕒 Сбор постов канала <code>{channel}</code> завершен\n"
                 f"\tУспешно собрано {len(posts)} сообщений\n"
                 f"⏳ Запускаю проверку постов..."
             )
@@ -73,15 +73,24 @@ async def check_channel_handler(message: types.Message):
             channel=channel,
             posts=posts_payload,
             media_files=media_files,
+            from_id=message.from_user.id,
         )
     
-        stub_winrate = result.get("stub_winrate", "N/A")
+        request_id = result.get("request_id")
 
         await message.answer(
-            f"✅ Проверка постов канала <code>{channel}</code> завершена\n"
-            f"\tn8n ответил успешно\n"
-            f"\tstub_winrate: {stub_winrate}% (Общее кол-во постов: {len(posts)})"
+            f"🕖 Проверка постов канала <code>{channel}</code> запущена\n"
+            f"🆔 request_id: <code>{request_id}</code>\n"
+            f"⏳ Результат будет отправлен отдельным сообщением после завершения обработки"
         )
+
+        # stub_winrate = result.get("stub_winrate", "N/A")
+
+        # await message.answer(
+        #     f"✅ Проверка постов канала <code>{channel}</code> завершена\n"
+        #     f"\tn8n ответил успешно\n"
+        #     f"\tstub_winrate: {stub_winrate}% (Общее кол-во постов: {len(posts)})"
+        # )
 
     except NoPostsProvided as ex:
         logger.exception("Невозможно проанализировать посты, так как они не были предоставлены")
