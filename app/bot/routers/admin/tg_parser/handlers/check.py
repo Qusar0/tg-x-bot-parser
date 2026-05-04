@@ -38,7 +38,7 @@ async def check_channel_handler(message: types.Message):
     posts = None
     try:
         async with ChannelHistoryParser() as parser:
-            posts = await parser.get_last_posts(channel=channel, limit=25, load_media_binary=False)
+            posts = await parser.get_last_posts(channel=channel, limit=10, load_media_binary=False)
 
             posts_payload = []
             media_files = {}

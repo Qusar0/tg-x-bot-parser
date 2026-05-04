@@ -43,6 +43,9 @@ services:
     ports:
       - "5678:5678"
     environment:
+      HTTP_PROXY: http://user239081:6iogl9@130.254.41.43:6663
+      HTTPS_PROXY: http://user239081:6iogl9@130.254.41.43:6663
+      NO_PROXY: localhost,127.0.0.1,n8n
       NODES_EXCLUDE: "[]"
       N8N_DEFAULT_BINARY_DATA_MODE: ${N8N_DEFAULT_BINARY_DATA_MODE}
       N8N_PAYLOAD_SIZE_MAX: ${N8N_PAYLOAD_SIZE_MAX}

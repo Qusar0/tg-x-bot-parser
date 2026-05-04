@@ -1,0 +1,1371 @@
+{
+  "name": "Check Channel Stub",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-channel",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        0
+      ],
+      "id": "b0ed8ad8-22b5-485e-9236-d4ccb26cdf0a",
+      "name": "Webhook",
+      "webhookId": "fcebfb61-86e0-4cf6-aed7-a5c3c5ee2a79",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ZsCbg3ih22cYGd4D",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3616,
+        0
+      ],
+      "id": "b31dc837-0b7d-49aa-9605-6eebe3824d09",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "content": "## 1. Нормализация постов\nПолучаем посты с медиа из бота. Распаковываем архив, собираем массив постов.\n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/components/sticky-notes/)",
+        "height": 416,
+        "width": 1296
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -80,
+        -256
+      ],
+      "typeVersion": 1,
+      "id": "2b2688f2-c6fb-4fef-813a-45bfedd7ac59",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "363a7699-3293-40db-838e-2eefdaa9d593",
+      "name": "Compression"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction detectType(buffer) {\n  const hex4 = buffer.slice(0, 4).toString('hex').toUpperCase();\n  const hex2 = buffer.slice(0, 2).toString('hex').toUpperCase();\n\n  if (hex4.startsWith('504B0304')) return 'zip';\n  if (hex2.startsWith('1F8B')) return 'gzip';\n  if (hex4.startsWith('7B') || hex4.startsWith('5B')) return 'json-like';\n  return 'unknown';\n}\n\nconst files = [];\n\nfor (const item of items) {\n  if (!item.binary) continue;\n\n  for (const [key, file] of Object.entries(item.binary)) {\n    const buffer = Buffer.from(file.data, 'base64');\n    const utf8Preview = buffer.toString('utf8', 0, 200);\n    const hexPreview = buffer.slice(0, 32).toString('hex').toUpperCase();\n\n    files.push({\n      field_name: key,\n      file_name: file.fileName || null,\n      mime_type: file.mimeType || null,\n      file_size: file.fileSize || null,\n      detected_type: detectType(buffer),\n      hex_preview: hexPreview,\n      utf8_preview: utf8Preview,\n    });\n  }\n}\n\nreturn [{ json: { files } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -160
+      ],
+      "id": "9602b556-32c6-4f51-9d21-a8d7033f8af3",
+      "name": "Ручная проверка ввода"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nlet parsedJson = null;\nconst images = [];\nconst debug = [];\n\nfor (let itemIndex = 0; itemIndex < items.length; itemIndex++) {\n  const item = items[itemIndex];\n\n  if (!item.binary) continue;\n\n  for (const [key, file] of Object.entries(item.binary)) {\n    const fileName = file.fileName || '';\n    const mimeType = file.mimeType || '';\n\n    const isJsonFile =\n      mimeType === 'application/json' ||\n      fileName.toLowerCase().endsWith('.json') ||\n      fileName.toLowerCase() === 'manifest.json';\n\n    if (isJsonFile && parsedJson === null) {\n      try {\n        const buffer = await this.helpers.getBinaryDataBuffer(itemIndex, key);\n        const text = buffer.toString('utf8').trim();\n        parsedJson = JSON.parse(text);\n\n        debug.push({\n          parsed_from: key,\n          file_name: fileName,\n          mime_type: mimeType,\n        });\n      } catch (error) {\n        throw new Error(\n          `Ошибка парсинга JSON из ${key} (${fileName}): ${error.message}`\n        );\n      }\n    } else {\n      images.push({\n        field_name: key,\n        file_name: fileName,\n        mime_type: mimeType,\n        file_size: file.fileSize || null,\n      });\n    }\n  }\n}\n\nif (!parsedJson) {\n  throw new Error('JSON-файл не найден среди binary-вложений');\n}\n\nreturn [\n  {\n    json: {\n      manifest: parsedJson,\n      images_count: images.length,\n      images,\n      debug,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        0
+      ],
+      "id": "f69b6939-2bcf-412a-b712-4ade6e64f434",
+      "name": "Разбор манифеста"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n// return $input.all();\nconst items = $input.all();\nlet normalized_posts = [];\n\nfor (const item of items) {\n  const posts = item.json.manifest?.posts || [];\n  \n  // let posts = $input.all()\n  // posts = posts.json.manifest.posts\n  // let normalized_posts = []\n  for (const post of posts) {\n    // const post = item.json\n    normalized_posts.push({\n      message_id: post.message_id,\n      date: post.date,\n      content: post.text || post.caption || \"\",\n      has_media: post.has_photo || post.has_video || post.has_document,\n      media_filename: post.media_filename,\n    })\n  }\n}\nreturn normalized_posts\n\n//   \"message_id\": 851,\n//   \"date\": \"2026-01-11T18:15:24\",\n//   \"content\": \"Buying #DEXE here, massive pump incoming\",\n//   \"has_media\": false,\n//   \"media_filename\": null\n// return $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        0
+      ],
+      "id": "dd3b2394-3aae-45d4-a1a0-8bb058354734",
+      "name": "Нормализация постов"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "0f637c78-01f7-4c77-9e28-db4b670effc7",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        0
+      ],
+      "id": "b755c7ec-1d29-42dc-a707-65d22939a7c6",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "events": [
+          "activate",
+          "update"
+        ]
+      },
+      "type": "n8n-nodes-base.n8nTrigger",
+      "typeVersion": 1,
+      "position": [
+        16,
+        256
+      ],
+      "id": "9160b34f-66d2-4100-9de2-ebcb34245a91",
+      "name": "n8n Trigger"
+    },
+    {
+      "parameters": {
+        "command": "n8n export:workflow --all --output=\"/init-workflows/Check Channel Stub.json\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        224,
+        256
+      ],
+      "id": "ac5dc32b-7110-48c5-9a56-d5d7b1056072",
+      "name": "Execute Command"
+    },
+    {
+      "parameters": {
+        "content": "## 0. Сохранение конфигурации workflow в проекте\nПри **публикации workflow** (сохранении изменений) экспортирует json-файл с обновлённым workflow в папку проекта\n",
+        "height": 240,
+        "width": 1296,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        160
+      ],
+      "id": "45af69be-03cf-466d-9a29-8472a2aa6ae6",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## 2. Классификация постов через ИИ \n#### Перед началом использования:\n- Заполнить ***Ollama creditials***\n",
+        "height": 656,
+        "width": 964,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        -256
+      ],
+      "id": "b5429b98-5bf0-483a-9efa-0be84d7ffe75",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"ok\": true,\n  \"request_id\": \"{{ $(\"Разбор манифеста\").first().json.manifest.request_id }}\",\n  \"status\": \"accepted\"\n}",
+        "options": {
+          "dotNotation": false
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        848,
+        -160
+      ],
+      "id": "a9ec760c-b51b-4f6e-86af-e470376e601c",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n// for (const item of $input.all()) {\n//   item.json.myNewField = 1;\n// }\nfunction is_ollama_too_many_request_error(post) {\n  const ollama_too_many_request_error = \"The service is receiving too many requests from you\"\n  if (post.ai_validation.raw_ai_output && post.ai_validation.raw_ai_output.error && post.ai_validation.raw_ai_output.error === ollama_too_many_request_error) {\n    return true\n  }\n}\nfunction is_ollama_error(post) {\n  if (post.ai_validation.raw_ai_output && post.ai_validation.raw_ai_output.error) {\n    return true\n  }\n}\n\n\nconst src = $input.first()\nconst ai_posts = src.json.data\nconst signals = []\nconst not_signals = []\nconst errors = []\nconst ollama_too_many_requests = []\n\n\nfor (const post of ai_posts) {\n  if (post.classification.is_signal) {\n    signals.push(post)\n  } else if (is_ollama_too_many_request_error(post)) {\n    ollama_too_many_requests.push(post)\n  } else if (is_ollama_error(post)) {\n    errors.push(post)\n  } else {\n    not_signals.push(post)\n  }\n}\n\nreturn {\n  signals,\n  not_signals,\n  errors,\n  ollama_too_many_requests,\n}\n// return ai_posts.filter(elem => elem.classification.is_signal)\n\n// return $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        0
+      ],
+      "id": "6b33cf17-b723-4311-a804-93ef7b2964b7",
+      "name": "Фильтр сигналов",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function extractJsonText(value) {\n  // if (value.content == undefined) {\n  //   return JSON.stringify(value);\n  // }\n  if (typeof value.content !== 'string') {\n    return JSON.stringify(value.content);\n  }\n\n  let text = value.content.trim();\n  // text = text\n  //   .replace(/^```json\\s*/i, '')\n  //   .replace(/^```\\s*/i, '')\n  //   .replace(/\\s*```$/i, '')\n  //   .replace('\\n', '')\n  //   .replace('\\\\', '')\n  //   .trim();\n\n  // Убираем ```json ... ```\n  if (text.startsWith('```')) {\n    text = text\n      .replace(/^```json\\s*/i, '')\n      .replace(/^```\\s*/i, '')\n      .replace(/\\s*```$/i, '')\n      .replace('\\n', '')\n      .replace('\\\\', '')\n      .trim();\n  }\n\n  return text;\n}\n\nfunction normalizePostType(value) {\n  const allowed = ['signal', 'result', 'announcement', 'noise'];\n  if (typeof value !== 'string') return 'noise';\n\n  const normalized = value.trim().toLowerCase();\n  return allowed.includes(normalized) ? normalized : 'noise';\n}\n\nfunction normalizeDirection(value) {\n  if (typeof value !== 'string') return null;\n\n  const v = value.trim().toLowerCase();\n\n  if (['long', 'buy', 'bullish'].includes(v)) return 'long';\n  if (['short', 'sell', 'bearish'].includes(v)) return 'short';\n\n  return null;\n}\n\nfunction normalizeTicker(value) {\n  if (typeof value !== 'string') return null;\n\n  let v = value.trim().toUpperCase().replace(/^[$#]/, '').replace(/[\\s._\\-\\/]+/g, '');\n  // if (v.endsWith('USD')) {\n  //   v = v.replace(//, '')\n  // }\n\n  // Для MVP: только латинские тикеры 2-10 символов\n  if (/^[A-Z0-9]{2,10}$/.test(v)) {\n    return v;\n  }\n\n  return null;\n}\n\nfunction normalizeConfidence(value) {\n  let num = Number(value);\n\n  if (Number.isNaN(num)) return 0.5;\n\n  // Если модель вернула 96 вместо 0.96\n  if (num > 1 && num <= 100) {\n    num = num / 100;\n  }\n\n  if (num < 0) num = 0;\n  if (num > 1) num = 1;\n\n  return Math.round(num * 1000) / 1000;\n}\n\nfunction normalizedPrice(_price) {\n  let price = Number(_price)\n  if (!Number.isFinite(price)) return null\n  if (price < 0) price = -price\n  return price\n}\n\nfunction normalizeTime(_time) {\n  let time = Number(_time)\n  return time\n}\n\n// const item = $input;\nconst src = $json;\n\n// Тут надо подставить поле, где реально лежит ответ AI.\n// Часто это что-то вроде:\n// src.output\n// src.text\n// src.response\n// src.data\nconst rawAiOutput = src;\n\nlet parsed;\nlet parseError = null;\n\ntry {\n  const jsonText = extractJsonText(rawAiOutput);\n  parsed = JSON.parse(jsonText);\n} catch (error) {\n  parseError = error.message;\n  parsed = null;\n}\n\n// fallback, если JSON вообще не распарсился\nif (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {\n  return {\n    json: {\n      ...src,\n      ai_validation: {\n        validated: false,\n        error_stage: 'json_parse',\n        error_message: parseError || 'AI output is not a valid JSON object',\n        raw_ai_output: rawAiOutput,\n      },\n      classification: {\n        message_id: src.message_id ?? null,\n        post_type: 'noise',\n        is_signal: false,\n        date: null,\n        ticker: null,\n        direction: null,\n        confidence: 0,\n        reason: 'Fallback: invalid AI JSON',\n      },\n    },\n  };\n}\n\nconst postType = normalizePostType(parsed.category);\nconst direction = normalizeDirection(parsed.direction);\nconst ticker = normalizeTicker(parsed.ticker);\nconst confidence = normalizeConfidence(parsed.confidence);\nconst date = parsed.date\nconst profit = normalizedPrice(parsed.profit)\nconst entry_point = normalizedPrice(parsed.entry_point)\nconst close_point = normalizedPrice(parsed.stop_point)\nconst profit_point = normalizedPrice(parsed.profit_point)\nconst time = normalizeTime(parsed.time)\n\nconst isSignal =\n  typeof parsed.is_signal === 'boolean'\n    ? parsed.is_signal\n    : postType === 'signal';\n\nconst reason =\n  typeof parsed.reason === 'string' && parsed.reason.trim()\n    ? parsed.reason.trim()\n    : 'No reason provided';\n\nconst messageId =\n  parsed.message_id ?? src.message_id ?? null;\n\n// Дополнительная логическая коррекция:\n// если post_type != signal, то direction и ticker можно занулять,\n// чтобы не тащить шум дальше\nconst finalTicker = postType === 'signal' ? ticker : null;\nconst finalDirection = postType === 'signal' ? direction : null;\nconst finalIsSignal = postType === 'signal' && isSignal ? true : false;\n\nconst validationWarnings = [];\n\nif (parsed.post_type !== postType) {\n  validationWarnings.push(`post_type normalized: ${parsed.post_type} -> ${postType}`);\n}\nif (parsed.direction !== finalDirection) {\n  validationWarnings.push(`direction normalized: ${parsed.direction} -> ${finalDirection}`);\n}\nif (parsed.ticker !== finalTicker) {\n  validationWarnings.push(`ticker normalized: ${parsed.ticker} -> ${finalTicker}`);\n}\nif (parsed.confidence !== confidence) {\n  validationWarnings.push(`confidence normalized: ${parsed.confidence} -> ${confidence}`);\n}\n\nreturn {\n  json: {\n    ...src,\n    ai_validation: {\n      validated: true,\n      warnings: validationWarnings,\n      raw_ai_output: rawAiOutput,\n    },\n    classification: {\n      message_id: messageId,\n      post_type: postType,\n      is_signal: finalIsSignal,\n      date: date,\n      ticker: finalTicker,\n      direction: finalDirection,\n      profit,\n      time,\n      entry_point,\n      close_point,\n      profit_point,\n      confidence,\n      reason,\n    },\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        160
+      ],
+      "id": "f82a155f-584d-4fc6-9689-bc937746084b",
+      "name": "Парсинг ответов LLM"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "qwen3-vl:235b-instruct",
+          "mode": "list",
+          "cachedResultName": "qwen3-vl:235b-instruct"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a classifier of Telegram crypto channel posts.\n\nYour task is to classify exactly one post and return ONLY valid JSON.\nEvery post has context build from few previous posts. They can contain extra information about current or previous signal.\n\nClassify the post into one of these categories:\n- signal\n- result\n- announcement\n- noise\n\nDefinitions:\n- signal: explicit or near-explicit trade entry / trade idea / buy-long-short action\n- result: report of profit/loss after a signal, follow-up on previous signal\n- announcement: teaser, promise of future signal, \"stay tuned\", marketing lead-up\n- noise: general market talk, ads, unrelated content, channel promotion\n\nAlso extract:\n- is_signal: true/false\n- ticker: detected asset ticker if present, else null\n- direction: long / short / null\n- confidence: number from 0 to 1\n- reason: short explanation in one sentence\n- profit: number how many rate will grow or fall in %, set null if doesn't say\n- time: how long forecast in days, set null if doesn't say\n- entry_point: number, price in USD, where start to buy ticker, set null if doesn't say\n- stop_point: number, price in USD, where sell ticker despite the losses, set null if doesn't say\n- profit_point: number, price in USD, where sell ticker to make profit, set null if doesn't say\n\nRules:\n- Use the caption/text and context content only.\n- If the post says \"buying\", \"longing\", \"shorting\", treat it as likely signal.\n- If the post says \"next signal soon\", \"stay tuned\", treat as announcement.\n- If the post talks about profits after a past trade, treat as result.\n- If the signal or signals's context talks about time convert this time into days and set in time field.\n- Maximize time.\n- If the signal or signals's context talks about how ticker will grow or fall convert this number into % from current price and set in profit field.\n- If content has not any signal ignore context.\n- If entry_point, stop_point or profit_point consists of a range of values choose only one in range.\n- Return ONLY JSON, no markdown, no commentary.\n\nClassify this Telegram post.\n\nAlso add this fields to answer\nmessage_id: {{$json.message_id}}\ndate: {{$json.date}}\ncontent: {{$json.content}}\ncontext: {{$json.context}}"
+            }
+          ]
+        },
+        "options": {
+          "format": "json"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        160
+      ],
+      "id": "25179a8c-0d78-4c60-8969-c17c9075b682",
+      "name": "LLM классификация постов",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "credentials": {
+        "ollamaApi": {
+          "id": "Q7Tw5bH37gpib84W",
+          "name": "Ollama account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2448,
+        0
+      ],
+      "id": "4b1c0e7f-e1fb-4ae5-af61-db39fe611add",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "url": "https://data-api.binance.vision/api/v3/klines",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"symbol\": \"{{$json.symbol}}\",\n  \"interval\": \"{{$json.interval}}\",\n  \"startTime\": {{$json.startTime}},\n  \"endTime\": {{$json.endTime}}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2864,
+        176
+      ],
+      "id": "b196cff9-a7b4-44a9-af1a-431cc44dbeea",
+      "name": "HTTP Request",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2656,
+        0
+      ],
+      "id": "98049bf5-298a-41fe-bcf4-1d10daca5a6f",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// const out = [];\n// const items = $input.first().json\nconst item = $json\n\n// for (const item of items.signals) {\nconst c = item.classification || {};\n\n// if (!c.is_signal || !c.ticker || !c.date || !c.direction) {\n//   continue;\n// }\n\nconst days = c.time || 7\nconst signalDate = new Date(c.date);\nconst todayDate = new Date();\nconst startTime = signalDate.getTime();\nconst endTime = Number(todayDate)\n  // startTime + days * 24 * 60 * 60 * 1000; // c.time или 7 дней\n\nlet interval = '1h'\nif ((endTime - startTime) / (60 * 60 * 1000) <= 500) {\n  interval = '1h'\n} else if ((endTime - startTime) / (6 * 60 * 60 * 1000) <= 500) {\n  interval = '6h'\n} else if ((endTime - startTime) / (12 * 60 * 60 * 1000) <= 500) {\n  interval = '12h'\n} else {\n  interval = '24h'\n}\nlet symbol = `${String(c.ticker).toUpperCase()}`\nif (symbol.endsWith('USDT')) {\n} else if (symbol.endsWith('USD')) {\n  symbol += 'T'\n} else {\n  symbol += 'USDT'\n}\n\nreturn {\n  json: {\n    message_id: c.message_id,\n    signal_time: c.date,\n    ticker: c.ticker,\n    direction: c.direction,\n    symbol: symbol,\n    interval,\n    startTime: startTime,\n    endTime: endTime,\n    entry_point: Number(c.entry_point),\n    close_point: Number(c.close_point),\n    profit_point: Number(c.profit_point),\n    original: c,\n  }\n}\n// }\n\n// return out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        176
+      ],
+      "id": "1d64b79b-4ed8-47b9-836d-338d10dfb70c",
+      "name": "Формирование метаданных запроса"
+    },
+    {
+      "parameters": {
+        "jsCode": "const spamWords = [\n  'vip', 'referral', 'subscribe', 'promo', 'sponsored', 'advertisement'\n];\nfunction hasAny(text, words) {\n  return words.some(word => text.includes(word));\n}\n\nfunction filter_content_len(post) {\n  if (post.content.length < 9) return false\n  return true\n}\nfunction filter_spam(post) {\n  if (hasAny(post.content, spamWords)) return false\n  return true\n}\n\nconst inputItems = $input.all()\nlet filtred = inputItems.map(p => p.json)\n\nfiltred = filtred.filter(p => filter_content_len(p))\nfiltred = filtred.filter(p => filter_spam(p))\nreturn filtred\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        0
+      ],
+      "id": "02aaad41-8ca4-4bfd-a26b-dae5d4a2dbbf",
+      "name": "Фильтрация постов"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.first();\n\nlet wins = 0;\nlet losses = 0;\nlet unclear = 0;\n\nconst results = [];\n\nfor (const item of items.json.data) {\n  const r = item;\n  results.push(r);\n\n  if (r.outcome === 'win') wins++;\n  else if (r.outcome === 'loss') losses++;\n  else unclear++;\n}\n\nconst considered = wins + losses;\nconst winrate = considered > 0 ? Number(((wins / considered) * 100).toFixed(2)) : null;\n\nreturn [{\n  json: {\n    summary: {\n      total_signals: items.length,\n      wins,\n      losses,\n      unclear,\n      considered,\n      winrate,\n    },\n    results,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2864,
+        0
+      ],
+      "id": "987046c6-c941-452b-8c39-2bdbed978c22",
+      "name": "Подсчёт результатов проверки"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfunction sort_posts(a, b) {\n  if (a.json.date > b.json.date) return 1\n  if (b.json.date > a.json.date) return -1\n  return 0\n}\n\nlet context_arr = []\nconst items = $input.all().sort(sort_posts)\n\nfor (const item of items) {\n  item.json.context = context_arr.join('\\n');\n  context_arr.push(item.json.content)\n  if (context_arr.length >= 4) {\n    context_arr.shift()\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        0
+      ],
+      "id": "8306d5df-284c-4775-86aa-c44b0b26ee2c",
+      "name": "Сбор контекста для постов"
+    },
+    {
+      "parameters": {
+        "content": "## 3. Валидация сигналов\n#### Перед началом использования:\n- Заполнить ***Telegram Node(\"Сообщение об отсутствии сигналов\") creditials***\n- Заполнить ***Telegram Node(\"Сообщение об успешном завершении\") creditials***\n- Заполнить ***Telegram Node(\"Сообщение об ошибке\") creditials***",
+        "height": 656,
+        "width": 1220,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        -256
+      ],
+      "id": "42ea453d-429d-4f8b-8616-cefe81d6f944",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1056,
+        -160
+      ],
+      "id": "cb91220e-0c49-453f-861e-b93a7d0b3db4",
+      "name": "Ответ в бота об успешном запуске"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $(\"Разбор манифеста\").first().json.manifest.from_id }}",
+        "text": "=❌ Проверка канала {{ $(\"Разбор манифеста\").first().json.manifest.channel }} завершилась с ошибкой.\n({{ $json.error }})",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2576,
+        -592
+      ],
+      "id": "83b574dc-f8a2-4604-ae82-40018dc5d805",
+      "name": "Сообщение об ошибке",
+      "webhookId": "139042b4-b75f-42d1-abfd-66092f45c593",
+      "credentials": {
+        "telegramApi": {
+          "id": "7yHYrVsTpCG0JO6f",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $(\"Разбор манифеста\").first().json.manifest.from_id }}",
+        "text": "=✅ Проверка канала {{ $(\"Разбор манифеста\").first().json.manifest.channel }} завершена.\n🗒 Распознано сигналов: {{ $input.first().json.summary.considered }}.\n📈 winrate: {{ $input.first().json.summary.winrate }}%",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3072,
+        0
+      ],
+      "id": "00506a96-9ea4-439d-8e55-616b5c3c51af",
+      "name": "Сообщение об успешном завершении",
+      "webhookId": "139042b4-b75f-42d1-abfd-66092f45c593",
+      "credentials": {
+        "telegramApi": {
+          "id": "7yHYrVsTpCG0JO6f",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $(\"Разбор манифеста\").first().json.manifest.from_id }}",
+        "text": "=✅ Проверка канала {{ $(\"Разбор манифеста\").first().json.manifest.channel }} завершена.\n⚠ Сигналы не найдены. Не удалось расчитать winrate.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3072,
+        -176
+      ],
+      "id": "067596c3-a96b-4a37-adbb-5a8bef1bdd8b",
+      "name": "Сообщение об отсутствии сигналов",
+      "webhookId": "139042b4-b75f-42d1-abfd-66092f45c593",
+      "credentials": {
+        "telegramApi": {
+          "id": "7yHYrVsTpCG0JO6f",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a8c1910f-1a91-4fa0-bc60-aea64f5a77e1",
+                    "leftValue": "={{ $json.signals }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "array",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0c4ef4c8-eb17-4ccf-9148-ccf5ad716fd7",
+                    "leftValue": "={{ $json.ollama_too_many_requests }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "array",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.errors }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "array",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    },
+                    "id": "25cd296f-30ef-4d9e-a54e-7a0f3211906d"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "allMatchingOutputs": true
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1984,
+        -32
+      ],
+      "id": "768f768a-0ef4-4cba-99cb-b1d084d73e53",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"error\": \"Ошибка при классификации постов. Ollama api исчерпал лимит. Не удалось классифицировать {{$json.ollama_too_many_requests.length}} постов.\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        -592
+      ],
+      "id": "6470e598-78a4-43cf-93d5-a74bc9b80b82",
+      "name": "Подготовка сообщения об ошибке лимит Ollama"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"error\": \"Ошибка на этапе классификации постов. Не удалось классифицировать {{$json.errors.length}} постов.\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        -432
+      ],
+      "id": "5a3fd27b-1ec1-49ac-ae95-8369289140be",
+      "name": "Подготовка сообщения об ошибке лимит Ollama1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "o3",
+          "mode": "list",
+          "cachedResultName": "O3"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a classifier of Telegram crypto channel posts.\n\nYour task is to classify exactly one post and return ONLY valid JSON.\nEvery post has context build from few previous posts. They can contain extra information about current or previous signal.\n\nClassify the post into one of these categories:\n- signal\n- result\n- announcement\n- noise\n\nDefinitions:\n- signal: explicit or near-explicit trade entry / trade idea / buy-long-short action\n- result: report of profit/loss after a signal, follow-up on previous signal\n- announcement: teaser, promise of future signal, \"stay tuned\", marketing lead-up\n- noise: general market talk, ads, unrelated content, channel promotion\n\nAlso extract:\n- is_signal: true/false\n- ticker: detected asset ticker if present, else null\n- direction: long / short / null\n- confidence: number from 0 to 1\n- reason: short explanation in one sentence\n- profit: number how many rate will grow or fall in %, set null if doesn't say\n- time: how long forecast in days, set null if doesn't say\n\nRules:\n- Use the caption/text and context content only.\n- If the post says \"buying\", \"longing\", \"shorting\", treat it as likely signal.\n- If the post says \"next signal soon\", \"stay tuned\", treat as announcement.\n- If the post talks about profits after a past trade, treat as result.\n- If the signal or signals's context talks about time convert this time into days and set in time field.\n- Maximize time.\n- If the signal or signals's context talks about how ticker will grow or fall convert this number into % from current price and set in profit field.\n- If content has not any signal ignore context.\n- Return ONLY JSON, no markdown, no commentary.\n\nClassify this Telegram post.\n\nAlso add this fields to answer\nmessage_id: {{$json.message_id}}\ndate: {{$json.date}}\ncontent: {{$json.content}}\ncontext: {{$json.context}}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1472,
+        -416
+      ],
+      "id": "6a39a9d0-8564-48ac-bf3d-195cff04f801",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "ed5hU2c3PLurMopT",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n// for (const item of $input.all()) {\n//   item.json.myNewField = 1;\n// }\n\nreturn $input.first().json.signals;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        0
+      ],
+      "id": "85417ef6-a14c-4c2a-9119-9fdc7da9c7c2",
+      "name": "Выбор распознанных сигналов"
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=classified_post_{{ $('Фильтрация постов').item.message_id }}_{{ $('Фильтрация постов').item.date }}_{{ $('Фильтрация постов').item.content }}",
+        "value": "={{ $json.content }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        448
+      ],
+      "id": "4df06526-6430-4354-958e-e54d22bf3a1a",
+      "name": "Redis",
+      "credentials": {
+        "redis": {
+          "id": "TsDNObc7ZvCvKajC",
+          "name": "Redis account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a808c680-d664-4476-974d-9b07fe4d6300",
+              "leftValue": "={{ $json.ai_validation.validated }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1808,
+        448
+      ],
+      "id": "3b37a869-82db-49cb-8b3a-f92289f8d1fa",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "=classified_post_{{ $json.message_id }}_{{ $json.date }}_{{ $json.content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        448
+      ],
+      "id": "cda68895-0163-4140-a2c3-80119d5ad5e4",
+      "name": "Redis1",
+      "credentials": {
+        "redis": {
+          "id": "TsDNObc7ZvCvKajC",
+          "name": "Redis account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 2_. Кэширование обращений к LLM в redis\n",
+        "height": 384,
+        "width": 964,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        400
+      ],
+      "id": "aa5efb03-e4e4-45eb-8358-ee6de6268b3e",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ Number.isFinite(Number($('Формирование метаданных запроса').item.json.entry_point)) && Number.isFinite(Number($('Формирование метаданных запроса').item.json.profit_point)) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "f91b1ff8-988c-473a-82ca-672dc509aaeb"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "ignoreCase": false
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3072,
+        176
+      ],
+      "id": "14fb5cd5-61a9-4e7c-94ee-72371203192b",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputItems = $input.all();\nconst meta_item = $('Формирование метаданных запроса').first().json\nlet market_data_ok = true\n\n// for (const item of inputItems) {\n  // Если HTTP Request настроен \"Include Input Data\", поля сигнала будут рядом с ответом\n  // Если нет — ниже надо адаптировать под твою конкретную структуру.\n  // const klines = item.json;\n  // const prev = item.pairedItem?.item ?? null;\n\n  // n8n может вернуть просто массив свечей как json.\n  // Поэтому если входные поля не пробрасываются, включи \"Include Input Data\" в HTTP Request.\n  // const source = item.json.original ? item.json : null;\n\n  // Попытка взять мета-данные из текущего item\n  const message_id = meta_item.message_id;\n  const ticker = meta_item.ticker;\n  const direction = meta_item.direction;\n  const signal_time = meta_item.signal_time;\n  const symbol = meta_item.symbol;\n\n  const candles = inputItems\n    // Array.isArray(item.json) ? item.json : item.json.data || item.json.body || item.json.klines || [];\n\n  if (!Array.isArray(candles) || candles.length === 0) {\n    return {\n      json: {\n        message_id,\n        ticker,\n        direction,\n        signal_time,\n        symbol,\n        outcome: 'unclear',\n        reason: 'No market candles returned',\n        market_data_ok: false,\n      }\n    };\n    // continue;\n  }\n\n  const entryPrice = Number(candles[0].json[1]); // open первой свечи\n  const highs = candles.map(c => Number(c.json[2]));\n  const lows = candles.map(c => Number(c.json[3]));\n\n  const maxPricePeriod = Math.max(...highs);\n  const minPricePeriod = Math.min(...lows);\n\n  const profitPctMaxPeriod = ((maxPricePeriod - entryPrice) / entryPrice) * 100;\n  const drawdownPctPeriod = ((minPricePeriod - entryPrice) / entryPrice) * 100;\n\n  let outcome = 'unclear';\n  let reason = '';\n\n  const profit_prcnt = meta_item.profit || 10\n\n  if (direction === 'long') {\n    outcome = profitPctMaxPeriod >= profit_prcnt ? 'win' : 'loss';\n    reason = outcome === 'win'\n      ? `Maximum price in Period reached at least +${profit_prcnt}% from entry`\n      : `Maximum price in Period did not reach +${profit_prcnt}% from entry`;\n  } else if (direction === 'short') {\n    const profitPctShortPeriod = ((entryPrice - minPricePeriod) / entryPrice) * 100;\n    outcome = profitPctShortPeriod >= profit_prcnt ? 'win' : 'loss';\n    reason = outcome === 'win'\n      ? 'Minimum price in Period reached at least -${profit_prcnt}% from entry'\n      : 'Minimum price in Period did not reach -${profit_prcnt}% from entry';\n  }\n\n  if (entryPrice == null) {\n    reason = 'No candles reciewed from stock => ticker was not found. Win, beacause we can\\'t proof wrong'\n    outcome = 'win'\n    market_data_ok = false\n  }\n\n  return {\n    json: {\n      message_id,\n      ticker,\n      direction,\n      signal_time,\n      symbol,\n      entry_price: entryPrice,\n      max_price_period: maxPricePeriod,\n      min_price_period: minPricePeriod,\n      profit_pct_max_period: Number(profitPctMaxPeriod.toFixed(2)),\n      drawdown_pct_period: Number(drawdownPctPeriod.toFixed(2)),\n      outcome,\n      reason,\n      market_data_ok,\n    }\n  };\n// }"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3280,
+        176
+      ],
+      "id": "e25c359c-276b-4df4-9424-e5c858e0bf3f",
+      "name": "Валидация сигнала по цене и времени"
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputItems = $input.all();\nconst meta_item = $('Формирование метаданных запроса').first().json\nlet market_data_ok = true\n\nfunction is_close(point, to_point) {\n  const epsilon = to_point * 0.05\n  const delta = to_point - point\n  if (Math.abs(delta) < epsilon) return true\n  return false\n}\n// for (const item of inputItems) {\n  // Если HTTP Request настроен \"Include Input Data\", поля сигнала будут рядом с ответом\n  // Если нет — ниже надо адаптировать под твою конкретную структуру.\n  // const klines = item.json;\n  // const prev = item.pairedItem?.item ?? null;\n\n  // n8n может вернуть просто массив свечей как json.\n  // Поэтому если входные поля не пробрасываются, включи \"Include Input Data\" в HTTP Request.\n  // const source = item.json.original ? item.json : null;\n\n  // Попытка взять мета-данные из текущего item\n  const message_id = meta_item.message_id;\n  const ticker = meta_item.ticker;\n  const direction = meta_item.direction;\n  const signal_time = meta_item.signal_time;\n  const symbol = meta_item.symbol;\n  const entry_point = meta_item.entry_point\n  const close_point = meta_item.close_point\n  const profit_point = meta_item.profit_point\n\n  const candles = inputItems\n    // Array.isArray(item.json) ? item.json : item.json.data || item.json.body || item.json.klines || [];\n\n  if (!Array.isArray(candles) || candles.length === 0) {\n    return {\n      json: {\n        message_id,\n        ticker,\n        direction,\n        signal_time,\n        symbol,\n        outcome: 'unclear',\n        reason: 'No market candles returned',\n        market_data_ok: false,\n      }\n    };\n    // continue;\n  }\n\n  const entryPrice = Number(candles[0].json[1]); // open первой свечи\n  // const highs = candles.map(c => Number(c.json[2]));\n  // const lows = candles.map(c => Number(c.json[3]));\n\n  // const maxPricePeriod = Math.max(...highs);\n  // const minPricePeriod = Math.min(...lows);\n\n  // const profitPctMaxPeriod = ((maxPricePeriod - entryPrice) / entryPrice) * 100;\n  // const drawdownPctPeriod = ((minPricePeriod - entryPrice) / entryPrice) * 100;\n\n  let outcome = 'unclear';\n  let reason = '';\n\n  // const profit_prcnt = meta_item.profit || 10\n\n  let is_reach_open_point = false\n  let is_reach_stop_point = false\n  let is_reach_profit_point = false\n  if (is_close(entryPrice, entry_point)) {\n    is_reach_open_point = true\n  }\n  \n  for (const candle of candles) {\n    const heigh = candle.json[2]\n    const low = candle.json[3]\n    if (direction === 'long') {\n      if (is_reach_open_point === false && heigh >= entry_point) {\n        is_reach_open_point = true\n      }\n      if (is_reach_open_point && low < close_point) {\n        is_reach_stop_point = true\n        outcome = 'loss'\n        reason = 'Price reached STOP point'\n        break;\n      }\n      if (is_reach_open_point && heigh >= profit_point) {\n        is_reach_profit_point = true\n        outcome = 'win'\n        reason = 'Price reached PROFIT point with out reaching STOP point'\n        break;\n      }\n    } else if (direction === 'short') {\n      if (is_reach_open_point === false && low <= entry_point) {\n        is_reach_open_point = true\n      }\n      if (is_reach_open_point && heigh > close_point) {\n        is_reach_stop_point = true\n        outcome = 'loss'\n        reason = 'Price reached STOP point'\n        break;\n      }\n      if (is_reach_open_point && low <= profit_point) {\n        is_reach_profit_point = true\n        outcome = 'win'\n        reason = 'Price reached PROFIT point with out reaching STOP point'\n        break;\n      }\n    }\n  }\n\n  if (is_reach_profit_point === false && is_reach_stop_point === false) {true\n    outcome = 'loss'\n    reason = 'Price didn\\'t reach STOP or PROFIT point'\n  }\n\n  // if (direction === 'long') {\n  //   outcome = profitPctMaxPeriod >= profit_prcnt ? 'win' : 'loss';\n  //   reason = outcome === 'win'\n  //     ? `Maximum price in Period reached at least +${profit_prcnt}% from entry`\n  //     : `Maximum price in Period did not reach +${profit_prcnt}% from entry`;\n  // } else if (direction === 'short') {\n  //   const profitPctShortPeriod = ((entryPrice - minPricePeriod) / entryPrice) * 100;\n  //   outcome = profitPctShortPeriod >= profit_prcnt ? 'win' : 'loss';\n  //   reason = outcome === 'win'\n  //     ? 'Minimum price in Period reached at least -${profit_prcnt}% from entry'\n  //     : 'Minimum price in Period did not reach -${profit_prcnt}% from entry';\n  // }\n\n  if (entryPrice == null) {\n    reason = 'No candles reciewed from stock => ticker was not found. Win, beacause we can\\'t proof wrong'\n    outcome = 'win'\n    market_data_ok = false\n  }\n\n  return {\n    json: {\n      message_id,\n      ticker,\n      direction,\n      signal_time,\n      symbol,\n      entry_price: entryPrice,\n      outcome,\n      reason,\n      market_data_ok,\n    }\n  };\n// }"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3280,
+        352
+      ],
+      "id": "e3c2a805-aa3a-4c6f-8853-9300fc8af35c",
+      "name": "Валидация сигнала по точке входа и выхода"
+    }
+  ],
+  "pinData": {
+    "Разбор манифеста": [
+      {
+        "json": {
+          "manifest": {
+            "channel": "@cryptosignal",
+            "request_id": "610ef2ef-4304-4fe6-8093-2c37e4ef5afc",
+            "from_id": 2054650051,
+            "posts": [
+              {
+                "message_id": 855,
+                "date": "2026-04-01T16:23:40",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": "Hello everyone, in the past, we have always done massive successful pumps on centralized exchanges and helped our members generate millions of $ in profits over the years.  Back in 2021 we posted a Dex coin that went up around 50x from 4m marketcap to 200m after our post and we will try to replicate something like that again for everyone. As of today, we are officially announcing that we are going to disrupt the memecoin market on chain.\n\nWe are also going to have a  massive presence on twitter in order to maximize our profits. Our twitter link will be posted shortly.\n\nStay tuned for more updates in the upcoming days.",
+                "caption": null,
+                "has_photo": false,
+                "has_video": false,
+                "has_document": false,
+                "media_type": null,
+                "media_filename": null
+              },
+              {
+                "message_id": 854,
+                "date": "2026-01-22T16:03:09",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": "The market is looking really good for altcoins, our next big signal will be in the upcoming days.",
+                "caption": null,
+                "has_photo": false,
+                "has_video": false,
+                "has_document": false,
+                "media_type": null,
+                "media_filename": null
+              },
+              {
+                "message_id": 853,
+                "date": "2026-01-14T02:50:24",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": "Hello everyone, make sure to join our new telegram for the next buy signal and be part of our upcoming plans that will make  our members massive amounts of profits :\n\n https://t.me/megasignalscrypto",
+                "caption": null,
+                "has_photo": false,
+                "has_video": false,
+                "has_document": false,
+                "media_type": null,
+                "media_filename": null
+              },
+              {
+                "message_id": 852,
+                "date": "2026-01-12T01:26:50",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": "Quick profits for anyone that bought instantly after our signal , specially those who used leverage ( Up to 150% profit on 10x leverage ). Good level to rebuy here for those who missed the pump",
+                "caption": null,
+                "has_photo": false,
+                "has_video": false,
+                "has_document": false,
+                "media_type": null,
+                "media_filename": null
+              },
+              {
+                "message_id": 851,
+                "date": "2026-01-11T18:15:24",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": "Buying #DEXE here, massive pump incoming",
+                "caption": null,
+                "has_photo": false,
+                "has_video": false,
+                "has_document": false,
+                "media_type": null,
+                "media_filename": null
+              },
+              {
+                "message_id": 850,
+                "date": "2026-01-11T18:15:18",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": null,
+                "caption": null,
+                "has_photo": true,
+                "has_video": false,
+                "has_document": false,
+                "media_type": "photo",
+                "media_filename": null
+              },
+              {
+                "message_id": 849,
+                "date": "2026-01-11T15:31:39",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": "Some altcoins are looking good to buy right now. We will be posting one today that is guaranteed to pump at least x2 from it's current price within the next few weeks.",
+                "caption": null,
+                "has_photo": false,
+                "has_video": false,
+                "has_document": false,
+                "media_type": null,
+                "media_filename": null
+              },
+              {
+                "message_id": 848,
+                "date": "2026-01-09T13:44:53",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": "Hello everyone, we have found a really good coin that we will be supporting in the upcoming months and that has a high chance of making us massive amounts of profits. It will be posted within the next few days, stay tuned.",
+                "caption": null,
+                "has_photo": false,
+                "has_video": false,
+                "has_document": false,
+                "media_type": null,
+                "media_filename": null
+              },
+              {
+                "message_id": 847,
+                "date": "2025-11-13T19:44:51",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": null,
+                "caption": "Longing #ETH here with massive size and x5 leverage.",
+                "has_photo": true,
+                "has_video": false,
+                "has_document": false,
+                "media_type": "photo",
+                "media_filename": null
+              },
+              {
+                "message_id": 846,
+                "date": "2025-10-31T19:30:33",
+                "chat_id": -1001420299757,
+                "chat_title": "Crypto Signal",
+                "chat_username": "CryptoSignal",
+                "text": "🛎 Pump Signal Announcement!🛎\nDate : To be determined\nTime : 16:00 pm GMT\nExchange : On chain ( solana ) \nHello everyone, in the past, we have always done massive successful pumps on centralized exchanges and helped our members generate millions of $ in profits over the years.  Back in 2021 we posted a Dex coin that went up around 50x from 4m marketcap to 200m after our post and we will try to replicate something like that again for everyone. As of today, we are officially announcing that we will start doing pumps on Dex. The official date for our first Dex pump will be announced shortly.\nWe expect this buy signal to make everyone a lot of profits, stay tuned for more updates to come leading up to the signal.",
+                "caption": null,
+                "has_photo": false,
+                "has_video": false,
+                "has_document": false,
+                "media_type": null,
+                "media_filename": null
+              }
+            ]
+          },
+          "images_count": 0,
+          "images": [],
+          "debug": [
+            {
+              "parsed_from": "file_0",
+              "file_name": "manifest.json",
+              "mime_type": "application/json"
+            }
+          ]
+        }
+      }
+    ],
+    "LLM классификация постов": [
+      {
+        "json": {
+          "error": "The service is receiving too many requests from you"
+        }
+      },
+      {
+        "json": {
+          "error": "The service is receiving too many requests from you"
+        }
+      },
+      {
+        "json": {
+          "error": "The service is receiving too many requests from you"
+        }
+      },
+      {
+        "json": {
+          "error": "The service is receiving too many requests from you"
+        }
+      },
+      {
+        "json": {
+          "error": "The service is receiving too many requests from you"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Compression",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compression": {
+      "main": [
+        [
+          {
+            "node": "Ручная проверка ввода",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Разбор манифеста",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ручная проверка ввода": {
+      "main": [
+        []
+      ]
+    },
+    "Разбор манифеста": {
+      "main": [
+        [
+          {
+            "node": "Нормализация постов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Нормализация постов": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Сбор контекста для постов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM классификация постов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Фильтр сигналов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Ответ в бота об успешном запуске",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фильтр сигналов": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Парсинг ответов LLM": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM классификация постов": {
+      "main": [
+        [
+          {
+            "node": "Парсинг ответов LLM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Формирование метаданных запроса",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "Подсчёт результатов проверки",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Формирование метаданных запроса": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фильтрация постов": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Подсчёт результатов проверки": {
+      "main": [
+        [
+          {
+            "node": "Сообщение об успешном завершении",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сбор контекста для постов": {
+      "main": [
+        [
+          {
+            "node": "Фильтрация постов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Выбор распознанных сигналов",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Подготовка сообщения об ошибке лимит Ollama",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Подготовка сообщения об ошибке лимит Ollama1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Сообщение об отсутствии сигналов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        []
+      ]
+    },
+    "Подготовка сообщения об ошибке лимит Ollama": {
+      "main": [
+        [
+          {
+            "node": "Сообщение об ошибке",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Подготовка сообщения об ошибке лимит Ollama1": {
+      "main": [
+        [
+          {
+            "node": "Сообщение об ошибке",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Выбор распознанных сигналов": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Redis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Валидация сигнала по точке входа и выхода",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Валидация сигнала по цене и времени",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация сигнала по цене и времени": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация сигнала по точке входа и выхода": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "05f2be50-f082-4409-b8ce-3a1e787f326b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "78f0d730b857ab372257215ad65f7bce75c613e5ce62a9349b64e857e0b064f8"
+  },
+  "id": "oZf1Wv7SIn6m9N9O",
+  "tags": []
+}
