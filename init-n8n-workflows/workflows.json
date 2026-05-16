@@ -1,5 +1,5 @@
 {
-  "name": "Check Channel Stub",
+  "name": "Check Channel Bybit",
   "nodes": [
     {
       "parameters": {
@@ -289,10 +289,10 @@
     },
     {
       "parameters": {
-        "url": "https://data-api.binance.vision/api/v3/klines",
+        "url": "https://api.bybit.com/v5/market/kline",
         "sendQuery": true,
         "specifyQuery": "json",
-        "jsonQuery": "={\n  \"symbol\": \"{{$json.symbol}}\",\n  \"interval\": \"{{$json.interval}}\",\n  \"startTime\": {{$json.startTime}},\n  \"endTime\": {{$json.endTime}}\n}",
+        "jsonQuery": "={\n  \"symbol\": \"{{$json.symbol}}\",\n  \"interval\": \"{{$json.interval}}\",\n  \"start\": {{$json.startTime}},\n  \"end\": {{$json.endTime}}\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -323,7 +323,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// const out = [];\n// const items = $input.first().json\nconst item = $json\n\n// for (const item of items.signals) {\nconst c = item.classification || {};\n\n// if (!c.is_signal || !c.ticker || !c.date || !c.direction) {\n//   continue;\n// }\n\nconst days = c.time || 7\nconst signalDate = new Date(c.date);\nconst todayDate = new Date();\nconst startTime = signalDate.getTime();\nconst endTime = Number(todayDate)\n  // startTime + days * 24 * 60 * 60 * 1000; // c.time или 7 дней\n\nlet interval = '1h'\nif ((endTime - startTime) / (60 * 60 * 1000) <= 500) {\n  interval = '1h'\n} else if ((endTime - startTime) / (6 * 60 * 60 * 1000) <= 500) {\n  interval = '6h'\n} else if ((endTime - startTime) / (12 * 60 * 60 * 1000) <= 500) {\n  interval = '12h'\n} else {\n  interval = '24h'\n}\nlet symbol = `${String(c.ticker).toUpperCase()}`\nif (symbol.endsWith('USDT')) {\n} else if (symbol.endsWith('USD')) {\n  symbol += 'T'\n} else {\n  symbol += 'USDT'\n}\n\nreturn {\n  json: {\n    message_id: c.message_id,\n    signal_time: c.date,\n    ticker: c.ticker,\n    direction: c.direction,\n    symbol: symbol,\n    interval,\n    startTime: startTime,\n    endTime: endTime,\n    entry_point: Number(c.entry_point),\n    close_point: Number(c.close_point),\n    profit_point: Number(c.profit_point),\n    original: c,\n  }\n}\n// }\n\n// return out;"
+        "jsCode": "// const out = [];\n// const items = $input.first().json\nconst item = $json\n\n// for (const item of items.signals) {\nconst c = item.classification || {};\n\n// if (!c.is_signal || !c.ticker || !c.date || !c.direction) {\n//   continue;\n// }\n\nconst days = c.time || 7\nconst signalDate = new Date(c.date);\nconst todayDate = new Date();\nconst startTime = signalDate.getTime();\nconst endTime = Number(todayDate)\n  // startTime + days * 24 * 60 * 60 * 1000; // c.time или 7 дней\n\nlet interval = '60'\nif ((endTime - startTime) / (60 * 60 * 1000) <= 500) {\n  interval = '60'\n} else if ((endTime - startTime) / (6 * 60 * 60 * 1000) <= 500) {\n  interval = '360'\n} else if ((endTime - startTime) / (12 * 60 * 60 * 1000) <= 500) {\n  interval = '720'\n} else {\n  interval = '1440'\n}\nlet symbol = `${String(c.ticker).toUpperCase()}`\nif (symbol.endsWith('USDT')) {\n} else if (symbol.endsWith('USD')) {\n  symbol += 'T'\n} else {\n  symbol += 'USDT'\n}\n\nreturn {\n  json: {\n    message_id: c.message_id,\n    signal_time: c.date,\n    ticker: c.ticker,\n    direction: c.direction,\n    symbol: symbol,\n    interval,\n    startTime: startTime,\n    endTime: endTime,\n    entry_point: Number(c.entry_point),\n    close_point: Number(c.close_point),\n    profit_point: Number(c.profit_point),\n    original: c,\n  }\n}\n// }\n\n// return out;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -777,7 +777,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        3072,
+        3264,
         176
       ],
       "id": "14fb5cd5-61a9-4e7c-94ee-72371203192b",
@@ -790,8 +790,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3280,
-        176
+        3504,
+        192
       ],
       "id": "e25c359c-276b-4df4-9424-e5c858e0bf3f",
       "name": "Валидация сигнала по цене и времени"
@@ -803,11 +803,24 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3280,
-        352
+        3504,
+        368
       ],
       "id": "e3c2a805-aa3a-4c6f-8853-9300fc8af35c",
       "name": "Валидация сигнала по точке входа и выхода"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Получаем входные данные (это массив)\nconst inputData = $input.first().json;\n\nconst response = inputData;\n\nif (response.retCode !== 0) {\n  throw new Error(response.retMsg);\n}\n\n// Преобразуем в формат Binance\nconst result = response.result.list.map(candle => [\n  parseInt(candle[0]),  // Open time (string → number)\n  candle[1],            // Open\n  candle[2],            // High\n  candle[3],            // Low\n  candle[4],            // Close\n  candle[5],            // Volume\n  parseInt(candle[0]) + 3600000, // Close time (приблизительно)\n  candle[6],            // Quote volume\n  0,                    // Trades count\n  \"0\",                  // Taker buy volume\n  \"0\",                  // Taker buy quote volume\n  \"0\"                   // Ignore\n]);\n\nreturn {\n    \"code\": \"000000\",\n    \"message\": \"\",\n    \"messageDetail\": \"\",\n    \"success\": true,\n    \"data\": result,\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3072,
+        176
+      ],
+      "id": "882c3148-88b7-46ed-ad0b-c6f262af694f",
+      "name": "Преобразование ответа байбита в ответ бинанса"
     }
   ],
   "pinData": {
@@ -1168,7 +1181,7 @@
       "main": [
         [
           {
-            "node": "Switch1",
+            "node": "Преобразование ответа байбита в ответ бинанса",
             "type": "main",
             "index": 0
           }
@@ -1351,6 +1364,17 @@
           }
         ]
       ]
+    },
+    "Преобразование ответа байбита в ответ бинанса": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -1361,7 +1385,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": true
   },
-  "versionId": "05f2be50-f082-4409-b8ce-3a1e787f326b",
+  "versionId": "c45a9acb-b89c-4631-9c39-b53ac5be82a0",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "78f0d730b857ab372257215ad65f7bce75c613e5ce62a9349b64e857e0b064f8"
