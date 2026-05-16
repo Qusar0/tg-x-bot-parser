@@ -1,5 +1,5 @@
 {
-  "name": "Check Channel Bybit",
+  "name": "Check Channel Stub",
   "nodes": [
     {
       "parameters": {
@@ -377,7 +377,7 @@
       "parameters": {
         "content": "## 3. Валидация сигналов\n#### Перед началом использования:\n- Заполнить ***Telegram Node(\"Сообщение об отсутствии сигналов\") creditials***\n- Заполнить ***Telegram Node(\"Сообщение об успешном завершении\") creditials***\n- Заполнить ***Telegram Node(\"Сообщение об ошибке\") creditials***",
         "height": 656,
-        "width": 1220,
+        "width": 1396,
         "color": 4
       },
       "type": "n8n-nodes-base.stickyNote",
@@ -777,7 +777,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        3264,
+        3216,
         176
       ],
       "id": "14fb5cd5-61a9-4e7c-94ee-72371203192b",
@@ -785,42 +785,42 @@
     },
     {
       "parameters": {
-        "jsCode": "const inputItems = $input.all();\nconst meta_item = $('Формирование метаданных запроса').first().json\nlet market_data_ok = true\n\n// for (const item of inputItems) {\n  // Если HTTP Request настроен \"Include Input Data\", поля сигнала будут рядом с ответом\n  // Если нет — ниже надо адаптировать под твою конкретную структуру.\n  // const klines = item.json;\n  // const prev = item.pairedItem?.item ?? null;\n\n  // n8n может вернуть просто массив свечей как json.\n  // Поэтому если входные поля не пробрасываются, включи \"Include Input Data\" в HTTP Request.\n  // const source = item.json.original ? item.json : null;\n\n  // Попытка взять мета-данные из текущего item\n  const message_id = meta_item.message_id;\n  const ticker = meta_item.ticker;\n  const direction = meta_item.direction;\n  const signal_time = meta_item.signal_time;\n  const symbol = meta_item.symbol;\n\n  const candles = inputItems\n    // Array.isArray(item.json) ? item.json : item.json.data || item.json.body || item.json.klines || [];\n\n  if (!Array.isArray(candles) || candles.length === 0) {\n    return {\n      json: {\n        message_id,\n        ticker,\n        direction,\n        signal_time,\n        symbol,\n        outcome: 'unclear',\n        reason: 'No market candles returned',\n        market_data_ok: false,\n      }\n    };\n    // continue;\n  }\n\n  const entryPrice = Number(candles[0].json[1]); // open первой свечи\n  const highs = candles.map(c => Number(c.json[2]));\n  const lows = candles.map(c => Number(c.json[3]));\n\n  const maxPricePeriod = Math.max(...highs);\n  const minPricePeriod = Math.min(...lows);\n\n  const profitPctMaxPeriod = ((maxPricePeriod - entryPrice) / entryPrice) * 100;\n  const drawdownPctPeriod = ((minPricePeriod - entryPrice) / entryPrice) * 100;\n\n  let outcome = 'unclear';\n  let reason = '';\n\n  const profit_prcnt = meta_item.profit || 10\n\n  if (direction === 'long') {\n    outcome = profitPctMaxPeriod >= profit_prcnt ? 'win' : 'loss';\n    reason = outcome === 'win'\n      ? `Maximum price in Period reached at least +${profit_prcnt}% from entry`\n      : `Maximum price in Period did not reach +${profit_prcnt}% from entry`;\n  } else if (direction === 'short') {\n    const profitPctShortPeriod = ((entryPrice - minPricePeriod) / entryPrice) * 100;\n    outcome = profitPctShortPeriod >= profit_prcnt ? 'win' : 'loss';\n    reason = outcome === 'win'\n      ? 'Minimum price in Period reached at least -${profit_prcnt}% from entry'\n      : 'Minimum price in Period did not reach -${profit_prcnt}% from entry';\n  }\n\n  if (entryPrice == null) {\n    reason = 'No candles reciewed from stock => ticker was not found. Win, beacause we can\\'t proof wrong'\n    outcome = 'win'\n    market_data_ok = false\n  }\n\n  return {\n    json: {\n      message_id,\n      ticker,\n      direction,\n      signal_time,\n      symbol,\n      entry_price: entryPrice,\n      max_price_period: maxPricePeriod,\n      min_price_period: minPricePeriod,\n      profit_pct_max_period: Number(profitPctMaxPeriod.toFixed(2)),\n      drawdown_pct_period: Number(drawdownPctPeriod.toFixed(2)),\n      outcome,\n      reason,\n      market_data_ok,\n    }\n  };\n// }"
+        "jsCode": "const inputItems = $input.first().json;\nconst meta_item = $('Формирование метаданных запроса').first().json\nlet market_data_ok = true\n\n// for (const item of inputItems) {\n  // Если HTTP Request настроен \"Include Input Data\", поля сигнала будут рядом с ответом\n  // Если нет — ниже надо адаптировать под твою конкретную структуру.\n  // const klines = item.json;\n  // const prev = item.pairedItem?.item ?? null;\n\n  // n8n может вернуть просто массив свечей как json.\n  // Поэтому если входные поля не пробрасываются, включи \"Include Input Data\" в HTTP Request.\n  // const source = item.json.original ? item.json : null;\n\n  // Попытка взять мета-данные из текущего item\n  const message_id = meta_item.message_id;\n  const ticker = meta_item.ticker;\n  const direction = meta_item.direction;\n  const signal_time = meta_item.signal_time;\n  const symbol = meta_item.symbol;\n\n  const candles = inputItems.json;\n    // Array.isArray(item.json) ? item.json : item.json.data || item.json.body || item.json.klines || [];\n\n  if (!Array.isArray(candles) || candles.length === 0) {\n    return {\n      json: {\n        message_id,\n        ticker,\n        direction,\n        signal_time,\n        symbol,\n        outcome: 'unclear',\n        reason: 'No market candles returned',\n        market_data_ok: false,\n      }\n    };\n    // continue;\n  }\n\n  const entryPrice = Number(candles[0].json[1]); // open первой свечи\n  const highs = candles.map(c => Number(c.json[2]));\n  const lows = candles.map(c => Number(c.json[3]));\n\n  const maxPricePeriod = Math.max(...highs);\n  const minPricePeriod = Math.min(...lows);\n\n  const profitPctMaxPeriod = ((maxPricePeriod - entryPrice) / entryPrice) * 100;\n  const drawdownPctPeriod = ((minPricePeriod - entryPrice) / entryPrice) * 100;\n\n  let outcome = 'unclear';\n  let reason = '';\n\n  const profit_prcnt = meta_item.profit || 10\n\n  if (direction === 'long') {\n    outcome = profitPctMaxPeriod >= profit_prcnt ? 'win' : 'loss';\n    reason = outcome === 'win'\n      ? `Maximum price in Period reached at least +${profit_prcnt}% from entry`\n      : `Maximum price in Period did not reach +${profit_prcnt}% from entry`;\n  } else if (direction === 'short') {\n    const profitPctShortPeriod = ((entryPrice - minPricePeriod) / entryPrice) * 100;\n    outcome = profitPctShortPeriod >= profit_prcnt ? 'win' : 'loss';\n    reason = outcome === 'win'\n      ? 'Minimum price in Period reached at least -${profit_prcnt}% from entry'\n      : 'Minimum price in Period did not reach -${profit_prcnt}% from entry';\n  }\n\n  if (entryPrice == null) {\n    reason = 'No candles reciewed from stock => ticker was not found. Win, beacause we can\\'t proof wrong'\n    outcome = 'win'\n    market_data_ok = false\n  }\n\n  return {\n    json: {\n      message_id,\n      ticker,\n      direction,\n      signal_time,\n      symbol,\n      entry_price: entryPrice,\n      max_price_period: maxPricePeriod,\n      min_price_period: minPricePeriod,\n      profit_pct_max_period: Number(profitPctMaxPeriod.toFixed(2)),\n      drawdown_pct_period: Number(drawdownPctPeriod.toFixed(2)),\n      outcome,\n      reason,\n      market_data_ok,\n    }\n  };\n// }"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3504,
-        192
+        3424,
+        176
       ],
       "id": "e25c359c-276b-4df4-9424-e5c858e0bf3f",
       "name": "Валидация сигнала по цене и времени"
     },
     {
       "parameters": {
-        "jsCode": "const inputItems = $input.all();\nconst meta_item = $('Формирование метаданных запроса').first().json\nlet market_data_ok = true\n\nfunction is_close(point, to_point) {\n  const epsilon = to_point * 0.05\n  const delta = to_point - point\n  if (Math.abs(delta) < epsilon) return true\n  return false\n}\n// for (const item of inputItems) {\n  // Если HTTP Request настроен \"Include Input Data\", поля сигнала будут рядом с ответом\n  // Если нет — ниже надо адаптировать под твою конкретную структуру.\n  // const klines = item.json;\n  // const prev = item.pairedItem?.item ?? null;\n\n  // n8n может вернуть просто массив свечей как json.\n  // Поэтому если входные поля не пробрасываются, включи \"Include Input Data\" в HTTP Request.\n  // const source = item.json.original ? item.json : null;\n\n  // Попытка взять мета-данные из текущего item\n  const message_id = meta_item.message_id;\n  const ticker = meta_item.ticker;\n  const direction = meta_item.direction;\n  const signal_time = meta_item.signal_time;\n  const symbol = meta_item.symbol;\n  const entry_point = meta_item.entry_point\n  const close_point = meta_item.close_point\n  const profit_point = meta_item.profit_point\n\n  const candles = inputItems\n    // Array.isArray(item.json) ? item.json : item.json.data || item.json.body || item.json.klines || [];\n\n  if (!Array.isArray(candles) || candles.length === 0) {\n    return {\n      json: {\n        message_id,\n        ticker,\n        direction,\n        signal_time,\n        symbol,\n        outcome: 'unclear',\n        reason: 'No market candles returned',\n        market_data_ok: false,\n      }\n    };\n    // continue;\n  }\n\n  const entryPrice = Number(candles[0].json[1]); // open первой свечи\n  // const highs = candles.map(c => Number(c.json[2]));\n  // const lows = candles.map(c => Number(c.json[3]));\n\n  // const maxPricePeriod = Math.max(...highs);\n  // const minPricePeriod = Math.min(...lows);\n\n  // const profitPctMaxPeriod = ((maxPricePeriod - entryPrice) / entryPrice) * 100;\n  // const drawdownPctPeriod = ((minPricePeriod - entryPrice) / entryPrice) * 100;\n\n  let outcome = 'unclear';\n  let reason = '';\n\n  // const profit_prcnt = meta_item.profit || 10\n\n  let is_reach_open_point = false\n  let is_reach_stop_point = false\n  let is_reach_profit_point = false\n  if (is_close(entryPrice, entry_point)) {\n    is_reach_open_point = true\n  }\n  \n  for (const candle of candles) {\n    const heigh = candle.json[2]\n    const low = candle.json[3]\n    if (direction === 'long') {\n      if (is_reach_open_point === false && heigh >= entry_point) {\n        is_reach_open_point = true\n      }\n      if (is_reach_open_point && low < close_point) {\n        is_reach_stop_point = true\n        outcome = 'loss'\n        reason = 'Price reached STOP point'\n        break;\n      }\n      if (is_reach_open_point && heigh >= profit_point) {\n        is_reach_profit_point = true\n        outcome = 'win'\n        reason = 'Price reached PROFIT point with out reaching STOP point'\n        break;\n      }\n    } else if (direction === 'short') {\n      if (is_reach_open_point === false && low <= entry_point) {\n        is_reach_open_point = true\n      }\n      if (is_reach_open_point && heigh > close_point) {\n        is_reach_stop_point = true\n        outcome = 'loss'\n        reason = 'Price reached STOP point'\n        break;\n      }\n      if (is_reach_open_point && low <= profit_point) {\n        is_reach_profit_point = true\n        outcome = 'win'\n        reason = 'Price reached PROFIT point with out reaching STOP point'\n        break;\n      }\n    }\n  }\n\n  if (is_reach_profit_point === false && is_reach_stop_point === false) {true\n    outcome = 'loss'\n    reason = 'Price didn\\'t reach STOP or PROFIT point'\n  }\n\n  // if (direction === 'long') {\n  //   outcome = profitPctMaxPeriod >= profit_prcnt ? 'win' : 'loss';\n  //   reason = outcome === 'win'\n  //     ? `Maximum price in Period reached at least +${profit_prcnt}% from entry`\n  //     : `Maximum price in Period did not reach +${profit_prcnt}% from entry`;\n  // } else if (direction === 'short') {\n  //   const profitPctShortPeriod = ((entryPrice - minPricePeriod) / entryPrice) * 100;\n  //   outcome = profitPctShortPeriod >= profit_prcnt ? 'win' : 'loss';\n  //   reason = outcome === 'win'\n  //     ? 'Minimum price in Period reached at least -${profit_prcnt}% from entry'\n  //     : 'Minimum price in Period did not reach -${profit_prcnt}% from entry';\n  // }\n\n  if (entryPrice == null) {\n    reason = 'No candles reciewed from stock => ticker was not found. Win, beacause we can\\'t proof wrong'\n    outcome = 'win'\n    market_data_ok = false\n  }\n\n  return {\n    json: {\n      message_id,\n      ticker,\n      direction,\n      signal_time,\n      symbol,\n      entry_price: entryPrice,\n      outcome,\n      reason,\n      market_data_ok,\n    }\n  };\n// }"
+        "jsCode": "const inputItems = $input.first().json;\nconsole.log(inputItems)\nconst meta_item = $('Формирование метаданных запроса').first().json;\nlet market_data_ok = true;\n\nfunction is_close(point, to_point) {\n  const epsilon = to_point * 0.05;\n  const delta = to_point - point;\n  return Math.abs(delta) < epsilon;\n}\n\n// Берём первый (и обычно единственный) item из входа\nconst currentItem = inputItems;\nconsole.log(currentItem)\n\n// Метаданные сигнала\nconst message_id = meta_item.message_id;\nconst ticker = meta_item.ticker;\nconst direction = meta_item.direction;\nconst signal_time = meta_item.signal_time;\nconst symbol = meta_item.symbol;\nconst entry_point = Number(meta_item.entry_point);\nconst close_point = Number(meta_item.close_point);\nconst profit_point = Number(meta_item.profit_point);\n\n// === ИЗВЛЕЧЕНИЕ СВЕЧЕЙ ИЗ НОВОГО ФОРМАТА ===\nconst candles = currentItem.json || [];\nconsole.log(candles)\n\nif (!Array.isArray(candles) || candles.length === 0) {\n  return {\n    json: {\n      message_id,\n      ticker,\n      direction,\n      signal_time,\n      symbol,\n      outcome: 'unclear',\n      reason: 'No market candles returned',\n      market_data_ok: false,\n    }\n  };\n}\n\n// Первая свеча = точка входа (по открытию)\nconst entryPrice = Number(candles[0][1]);\n\nlet outcome = 'unclear';\nlet reason = '';\n\nlet is_reach_open_point = false;\nlet is_reach_stop_point = false;\nlet is_reach_profit_point = false;\n\n// Проверяем, совпадает ли цена открытия с ожидаемой точкой входа\nif (is_close(entryPrice, entry_point)) {\n  is_reach_open_point = true;\n}\n\n// Проходим по всем свечам периода\nfor (const candle of candles) {\n  const high = Number(candle[2]); // Исправлено: было heigh\n  const low = Number(candle[3]);\n\n  if (direction === 'long') {\n    // Для лонга: проверяем достижение точки входа по максимуму свечи\n    if (!is_reach_open_point && high >= entry_point) {\n      is_reach_open_point = true;\n    }\n    \n    // Если вход подтверждён — проверяем стоп и тейк\n    if (is_reach_open_point) {\n      if (low < close_point) {\n        outcome = 'loss';\n        reason = 'Price reached STOP point';\n        is_reach_stop_point = true;\n        break;\n      }\n      if (high >= profit_point) {\n        outcome = 'win';\n        reason = 'Price reached PROFIT point without reaching STOP point';\n        is_reach_profit_point = true;\n        break;\n      }\n    }\n  } \n  else if (direction === 'short') {\n    // Для шорта: вход по минимуму свечи\n    if (!is_reach_open_point && low <= entry_point) {\n      is_reach_open_point = true;\n    }\n    \n    if (is_reach_open_point) {\n      if (high > close_point) {\n        outcome = 'loss';\n        reason = 'Price reached STOP point';\n        is_reach_stop_point = true;\n        break;\n      }\n      if (low <= profit_point) {\n        outcome = 'win';\n        reason = 'Price reached PROFIT point without reaching STOP point';\n        is_reach_profit_point = true;\n        break;\n      }\n    }\n  }\n}\n\n// Если ни стоп, ни тейк не сработали — считаем сделку убыточной\nif (!is_reach_profit_point && !is_reach_stop_point) {\n  outcome = 'loss';\n  reason = \"Price didn't reach STOP or PROFIT point\";\n}\n\n// Фолбэк: если не удалось получить цену входа\nif (entryPrice == null || isNaN(entryPrice)) {\n  reason = 'No candles received from stock => ticker was not found. Win, because we can\\'t proof wrong';\n  outcome = 'win';\n  market_data_ok = false;\n}\n\nreturn {\n  json: {\n    message_id,\n    ticker,\n    direction,\n    signal_time,\n    symbol,\n    entry_price: entryPrice,\n    outcome,\n    reason,\n    market_data_ok,\n  }\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3504,
-        368
+        3424,
+        352
       ],
       "id": "e3c2a805-aa3a-4c6f-8853-9300fc8af35c",
       "name": "Валидация сигнала по точке входа и выхода"
     },
     {
       "parameters": {
-        "jsCode": "// Получаем входные данные (это массив)\nconst inputData = $input.first().json;\n\nconst response = inputData;\n\nif (response.retCode !== 0) {\n  throw new Error(response.retMsg);\n}\n\n// Преобразуем в формат Binance\nconst result = response.result.list.map(candle => [\n  parseInt(candle[0]),  // Open time (string → number)\n  candle[1],            // Open\n  candle[2],            // High\n  candle[3],            // Low\n  candle[4],            // Close\n  candle[5],            // Volume\n  parseInt(candle[0]) + 3600000, // Close time (приблизительно)\n  candle[6],            // Quote volume\n  0,                    // Trades count\n  \"0\",                  // Taker buy volume\n  \"0\",                  // Taker buy quote volume\n  \"0\"                   // Ignore\n]);\n\nreturn {\n    \"code\": \"000000\",\n    \"message\": \"\",\n    \"messageDetail\": \"\",\n    \"success\": true,\n    \"data\": result,\n};"
+        "jsCode": "// n8n Code Node (JavaScript)\nconst output = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const list = data?.result?.list || [];\n\n  // Преобразуем каждую свечу в точный формат Binance Kline\n  const binanceKlines = list.map(candle => {\n    const openTime = Number(candle[0]);\n\n    return [\n      openTime,                   // 0: Open time (число)\n      String(candle[1]),          // 1: Open price (строка)\n      String(candle[2]),          // 2: High price (строка)\n      String(candle[3]),          // 3: Low price (строка)\n      String(candle[4]),          // 4: Close price (строка)\n      String(candle[5]),          // 5: Volume (строка)\n      openTime + 3600000,         // 6: Close time (число). Заглушка для 1H. См. пояснение ниже.\n      String(candle[6] || \"0\"),   // 7: Quote asset volume / turnover (строка)\n      0,                          // 8: Number of trades (число)\n      \"0\",                        // 9: Taker buy base asset volume (строка)\n      \"0\",                        // 10: Taker buy quote asset volume (строка)\n      \"0\"                         // 11: Ignore (строка)\n    ];\n  });\n\n  output.push({\n    json: {\n      json: binanceKlines\n    }\n  });\n}\n\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3072,
+        3040,
         176
       ],
-      "id": "882c3148-88b7-46ed-ad0b-c6f262af694f",
-      "name": "Преобразование ответа байбита в ответ бинанса"
+      "id": "53bf2432-10d4-4196-b077-2319f2dc08c8",
+      "name": "Code in JavaScript"
     }
   ],
   "pinData": {
@@ -1181,7 +1181,7 @@
       "main": [
         [
           {
-            "node": "Преобразование ответа байбита в ответ бинанса",
+            "node": "Code in JavaScript",
             "type": "main",
             "index": 0
           }
@@ -1365,7 +1365,7 @@
         ]
       ]
     },
-    "Преобразование ответа байбита в ответ бинанса": {
+    "Code in JavaScript": {
       "main": [
         [
           {
@@ -1385,7 +1385,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": true
   },
-  "versionId": "c45a9acb-b89c-4631-9c39-b53ac5be82a0",
+  "versionId": "e86ad75c-bcc6-4f65-83d7-04f66a06ca55",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "78f0d730b857ab372257215ad65f7bce75c613e5ce62a9349b64e857e0b064f8"
