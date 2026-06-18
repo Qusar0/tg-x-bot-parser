@@ -61,6 +61,10 @@ services:
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      EXECUTIONS_DATA_PRUNE: true
+      EXECUTIONS_DATA_MAX_AGE: 24          
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      DB_SQLITE_VACUUM_ON_STARTUP: true    
     volumes:
       - ./init-n8n-workflows:/init-workflows
       - n8n_data:/home/node/.n8n

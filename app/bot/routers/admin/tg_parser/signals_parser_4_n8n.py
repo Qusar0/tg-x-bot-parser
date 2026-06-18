@@ -4,6 +4,7 @@ import mimetypes
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Any
+import base64
 
 from app.userbot.userbot_manager import userbot_manager
 from loguru import logger
@@ -108,6 +109,7 @@ class ChannelHistoryParser:
             return None
 
         file_obj = await self._client.download_media(message, in_memory=True)
+        #print(f'{file_obj=}')
         if file_obj is None:
             return None
 
@@ -203,5 +205,6 @@ class ChannelHistoryParser:
             "has_video": post_obj.has_video,
             "has_document": post_obj.has_document,
             "media_type": post_obj.media_type,
+            'media_content': base64.b64encode(post_obj.media.content).decode("ascii") if post_obj.media_type else None,
             "media_filename": media_filename,
         }
