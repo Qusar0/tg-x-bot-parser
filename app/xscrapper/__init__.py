@@ -339,7 +339,7 @@ class XScrapper:
 
     async def load_search_channel(self, channel_url: str):
         """Вводим поисковой запрос"""
-        await self.page.goto(channel_url)
+        await self.page.goto(channel_url, wait_until="domcontentloaded", timeout=60000)
         await self.page.wait_for_timeout(1000)
         logger.debug(f"Начинаем поиск в канале: {channel_url}")
 
