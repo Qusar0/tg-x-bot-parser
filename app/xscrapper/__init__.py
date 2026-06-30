@@ -62,8 +62,8 @@ class XScrapper:
             args=browser_args,
             proxy={
                 "server": f"{config.proxy.type}://{config.proxy.host}:{config.proxy.port}",
-                "username": {config.proxy.username},
-                "password": {config.proxy.password}
+                "username": config.proxy.username,
+                "password": config.proxy.password,
             }
         )
         self.context = await self.browser.new_context()
