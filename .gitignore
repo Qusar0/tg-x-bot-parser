@@ -141,3 +141,8 @@ poetry.lock
 config.dev.ini
 answers.json
 *.xlsx
+
+# SQLite database
+database.db
+database.db-shm
+database.db-wal
