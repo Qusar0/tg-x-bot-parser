@@ -219,6 +219,10 @@ async def save_loaded_chats(cb: types.CallbackQuery, state: FSMContext):
             else:
                 chat = await ChatRepo.add(chat.id, chat.title, central_chat_id=central_chat_id)
         except Exception:
+            # Чат уже в БД: обновляем привязку к выбранному центральному чату
+            existing = await ChatRepo.get_by_telegram_id(chat.id)
+            if existing and central_chat_id is not None and existing.central_chat_id != central_chat_id:
+                await ChatRepo.set_central_chat_id(existing.telegram_id, central_chat_id)
             chat = await ChatRepo.get_by_telegram_id(chat.id)
         chats.append(chat)
 
