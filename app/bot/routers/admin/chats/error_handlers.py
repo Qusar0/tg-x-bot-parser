@@ -10,9 +10,14 @@ def get_markup(is_last: bool):
     return Markup.remove() if is_last else Markup.cancel_action()
 
 
-async def error_chat_exists_handler(message: types.Message, chat_entity: str, is_last: bool):
+async def error_chat_exists_handler(message: types.Message, chat_entity: str, is_last: bool, relinked: bool = False):
+    if relinked:
+        text = f"Чат <b>{chat_entity}</b> уже был добавлен — привязал его к выбранному центральному чату ✅"
+    else:
+        text = f"Чат <b>{chat_entity}</b> уже добавлен! ✅"
+
     await message.answer(
-        f"Чат <b>{chat_entity}</b> уже добавлен! ✅",
+        text,
         reply_markup=get_markup(is_last),
     )
     await asyncio.sleep(1)

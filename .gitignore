@@ -61,6 +61,16 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# SQLite runtime database (must not be tracked)
+database.db
+database.db-shm
+database.db-wal
+
+# Local backup / scratch files
+*.bak
+*.bak[0-9]
+*.old
+
 # Flask stuff:
 instance/
 .webassets-cache

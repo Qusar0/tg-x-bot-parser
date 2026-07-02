@@ -133,6 +133,10 @@ async def join_chat(chat_entity: str | int, chat: pyrogram_types.Chat | None = N
     try:
         candidate = await ChatRepo.get_by_entity(chat_entity)
         if candidate:
+            # Чат уже в БД: если выбран центральный чат и привязка отличается — обновляем её
+            if central_chat_id is not None and candidate.central_chat_id != central_chat_id:
+                await ChatRepo.set_central_chat_id(candidate.telegram_id, central_chat_id)
+                raise ChatExistsError(relinked=True)
             raise ChatExistsError()
 
         if chat_entity.isnumeric():
@@ -204,7 +208,10 @@ async def start_subscribe(  # noqa: C901
                     await send_added_joined_chat(message, chat_entity, is_last)
                 else:
                     await send_added_chat_message_and_sleep(message, chat_entity, is_last)
-        except (ChatExistsError, UserAlreadyParticipant):
+        except ChatExistsError as ex:
+            # Чат уже существует (возможно, обновили привязку к центральному чату)
+            await error_chat_exists_handler(message, chat_entity, is_last, ex.relinked)
+        except UserAlreadyParticipant:
             # Чат уже существует
             await error_chat_exists_handler(message, chat_entity, is_last)
         except FloodWait as ex:

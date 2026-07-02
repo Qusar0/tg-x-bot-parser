@@ -66,6 +66,16 @@ class ChatRepo:
         return False
     
     @staticmethod
+    async def set_central_chat_id(telegram_id: int, central_chat_id: int | None) -> bool:
+        """Обновить привязку мониторинг-чата к центральному чату."""
+        chat = await Chat.filter(telegram_id=telegram_id).first()
+        if chat:
+            chat.central_chat_id = central_chat_id
+            await chat.save()
+            return True
+        return False
+
+    @staticmethod
     async def update_winrate(telegram_id: int, winrate: float) -> bool:
         chat = await Chat.filter(telegram_id=telegram_id).first()
         if chat:
