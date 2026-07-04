@@ -73,6 +73,13 @@ class Handlers:
             # Если у мониторинг чата не указан central_chat_id, идем дальше
             if monitoring_chat_central_id:
                 logger.info(f"У мониторинг чата {candidate.telegram_id} найден central_chat_id: {monitoring_chat_central_id}")
+
+                keywords = await is_word_match(text, WordType.tg_keyword, monitoring_chat_central_id)
+                if not keywords:
+                    logger.info(f"В тексте не найдено ключевых слов (central={monitoring_chat_central_id}): {text[:100]}...")
+                    return
+                logger.info(f"Найдено {len(keywords)} ключевых слов (central): {[kw.title for kw in keywords]}")
+
                 keyword = None
                 processed_text = await preprocess_text(
                     text.html,
