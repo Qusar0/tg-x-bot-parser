@@ -250,6 +250,12 @@ class XScrapper:
                             logger.info(f"Нашли стоп-слова в сообщении: {id}")
                             continue
 
+                        matched_keywords = await is_word_match(tweet_div, WordType.x_keyword, chat_id)
+                        if not matched_keywords:
+                            logger.info(f"X: не найдено ключевых слов (central={chat_id}) для поста {id}")
+                            continue
+                        logger.info(f"X: найдено {len(matched_keywords)} ключевых слов (central={chat_id}): {[kw.title for kw in matched_keywords]}")
+
                         if await is_duplicate(id, tweet_text, chat_id=chat_id):
                             logger.info(f"Сообщение дубликат: {id} для чата {chat_id}")
                             continue
