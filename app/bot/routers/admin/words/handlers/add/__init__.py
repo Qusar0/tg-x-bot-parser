@@ -112,7 +112,7 @@ async def add_word_scene(message: types.Message, state: FSMContext):
     central_chat_id = data["central_chat_id"]
 
     words = extract_words(message.text)
-    response_template = "<b>{added_words} добавлено в чат: {chat_title} ✅</b>\n<u>Вернитесь назад или добавьте еще:</u>"
+    response_template = "<b>{added_words} добавлено в чат: {chat_title} ✅</b>\n{skipped_note}<u>Вернитесь назад или добавьте еще:</u>"
 
     from app.database.repo.Chat import ChatRepo
     central_chat = await ChatRepo.get_by_telegram_id(central_chat_id)
@@ -120,10 +120,14 @@ async def add_word_scene(message: types.Message, state: FSMContext):
     # Добавляем слова для любого типа
     added_words = await WordRepo.add_many(words, word_type, central_chat_id)
 
+    skipped_count = len(words) - len(added_words)
+    skipped_note = f"⚠️ Пропущено (уже есть в этом чате): {skipped_count}\n" if skipped_count else ""
+
     await message.answer(
         response_template.format(
             added_words=plural_value(len(added_words), PluralType.word),
             chat_title=central_chat.title,
+            skipped_note=skipped_note,
         ),
         reply_markup=Markup.back_menu(word_type),
     )

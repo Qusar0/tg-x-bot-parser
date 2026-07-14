@@ -20,11 +20,18 @@ class WordRepo:
         return word
 
     @staticmethod
+    async def get_one_in_chat(title: str, word_type: WordType, central_chat_id: int) -> Word | None:
+        word = await Word.filter(title=title, word_type=word_type, central_chat_id=central_chat_id).first()
+        return word
+
+    @staticmethod
     async def add_many(titles: list[str], word_type: WordType, central_chat_id: int) -> list[Word]:
         added_words = []
         for title in titles:
             try:
-                if not await WordRepo.get_one(title, word_type):
+                # Слово уникально в рамках центрального чата: одно и то же слово
+                # может быть привязано к нескольким чатам одновременно
+                if not await WordRepo.get_one_in_chat(title, word_type, central_chat_id):
                     word = await Word.create(
                         title=title,
                         normalized_title=title,
@@ -41,11 +48,14 @@ class WordRepo:
     async def delete_many(titles: list[str], word_type: WordType) -> list[str]:
         deleted_words = []
         for title in titles:
-            candidate = await Word.filter(title=title, word_type=word_type).first()
+            # Слово может существовать в нескольких центральных чатах — удаляем везде
+            candidates = await Word.filter(title=title, word_type=word_type).all()
 
-            if candidate:
+            for candidate in candidates:
                 await candidate.delete()
-                deleted_words.append(candidate.title)
+
+            if candidates:
+                deleted_words.append(title)
 
         return deleted_words
 

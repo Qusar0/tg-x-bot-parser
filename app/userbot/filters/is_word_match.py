@@ -6,13 +6,13 @@ from app.enums import WordType
 
 
 def is_word_contains(text: str, word: Word) -> bool:
-    is_match = True
-
-    for word in word.title.split():
-        if word not in text:
+    # text приходит уже в нижнем регистре, приводим и токены слова,
+    # чтобы ключи с заглавными буквами (например, из Excel) тоже матчились
+    for token in word.title.lower().split():
+        if token not in text:
             return False
 
-    return is_match
+    return True
 
 
 def get_matched_words(text: str, words: list[Word]) -> list[Word]:

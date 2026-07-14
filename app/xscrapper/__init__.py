@@ -280,8 +280,9 @@ class XScrapper:
                 target_chats = set()  # Используем set для уникальности
                 matched_keywords = []
 
+                tweet_div_lower = tweet_div.lower()
                 for keyword in keywords:
-                    if keyword.title in tweet_div:
+                    if keyword.title.lower() in tweet_div_lower:
                         if keyword.central_chat_id:  # Проверяем, что у ключевого слова есть чат
                             target_chats.add(keyword.central_chat_id)
                             matched_keywords.append(keyword)  # Сохраняем для обработки
