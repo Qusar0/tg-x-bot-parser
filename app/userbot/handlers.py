@@ -2,7 +2,8 @@ from loguru import logger
 from pyrogram import Client, types
 from pyrogram.errors import PeerIdInvalid
 from app.database.repo.Chat import ChatRepo
-from app.userbot.filters.is_word_match import is_word_match
+from app.database.repo.Word import WordRepo
+from app.userbot.filters.is_word_match import is_word_match, get_matched_words
 from app.enums import WordType
 from app.bot.Manager import BotManager
 from app.helpers import is_duplicate, preprocess_text, add_userbot_source_link
@@ -74,11 +75,17 @@ class Handlers:
             if monitoring_chat_central_id:
                 logger.info(f"У мониторинг чата {candidate.telegram_id} найден central_chat_id: {monitoring_chat_central_id}")
 
-                keywords = await is_word_match(text, WordType.tg_keyword, monitoring_chat_central_id)
-                if not keywords:
-                    logger.info(f"В тексте не найдено ключевых слов (central={monitoring_chat_central_id}): {text[:100]}...")
-                    return
-                logger.info(f"Найдено {len(keywords)} ключевых слов (central): {[kw.title for kw in keywords]}")
+                # Гибридная логика: если у центрального чата заданы ключ-слова — фильтруем по ним,
+                # если ключ-слов нет — пересылаем всё (прежнее поведение до фильтрации по ключам)
+                central_keywords = await WordRepo.get_all_from_central_id(WordType.tg_keyword, monitoring_chat_central_id)
+                if central_keywords:
+                    keywords = get_matched_words(text, central_keywords)
+                    if not keywords:
+                        logger.info(f"В тексте не найдено ключевых слов (central={monitoring_chat_central_id}): {text[:100]}...")
+                        return
+                    logger.info(f"Найдено {len(keywords)} ключевых слов (central): {[kw.title for kw in keywords]}")
+                else:
+                    logger.info(f"У центрального чата {monitoring_chat_central_id} нет ключ-слов — пересылаем без фильтрации по ключам")
 
                 keyword = None
                 processed_text = await preprocess_text(

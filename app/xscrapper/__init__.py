@@ -24,7 +24,7 @@ from app.helpers import (
     get_fetched_post_ids,
     add_x_link,
 )
-from app.userbot.filters.is_word_match import is_word_match
+from app.userbot.filters.is_word_match import is_word_match, get_matched_words
 from app.queue import queue
 from app.config import config
 
@@ -250,11 +250,17 @@ class XScrapper:
                             logger.info(f"Нашли стоп-слова в сообщении: {id}")
                             continue
 
-                        matched_keywords = await is_word_match(tweet_div, WordType.x_keyword, chat_id)
-                        if not matched_keywords:
-                            logger.info(f"X: не найдено ключевых слов (central={chat_id}) для поста {id}")
-                            continue
-                        logger.info(f"X: найдено {len(matched_keywords)} ключевых слов (central={chat_id}): {[kw.title for kw in matched_keywords]}")
+                        # Гибридная логика: если у центрального чата заданы ключ-слова X — фильтруем по ним,
+                        # если ключ-слов нет — пересылаем всё (прежнее поведение до фильтрации по ключам)
+                        central_keywords = await WordRepo.get_all_from_central_id(WordType.x_keyword, chat_id)
+                        if central_keywords:
+                            matched_keywords = get_matched_words(tweet_div, central_keywords)
+                            if not matched_keywords:
+                                logger.info(f"X: не найдено ключевых слов (central={chat_id}) для поста {id}")
+                                continue
+                            logger.info(f"X: найдено {len(matched_keywords)} ключевых слов (central={chat_id}): {[kw.title for kw in matched_keywords]}")
+                        else:
+                            logger.info(f"X: у центрального чата {chat_id} нет ключ-слов — пересылаем пост {id} без фильтрации")
 
                         if await is_duplicate(id, tweet_text, chat_id=chat_id):
                             logger.info(f"Сообщение дубликат: {id} для чата {chat_id}")
