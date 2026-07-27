@@ -1,5 +1,13 @@
 # Userbot Poller Fallback Implementation Plan
 
+> **СТАТУС: выполнен. Часть блоков кода ниже устарела — не копируйте их.**
+> В ходе поэтапных ревью в плане нашли четыре дефекта дизайна, и реализация намеренно
+> от него отошла: ключ дедупа альбома получил чат-получатель, проверка-с-отметкой
+> заменена атомарным захватом `SET NX EX`, добавлен возрастной фильтр сообщений,
+> поиск медиа-группы идёт по якорному сообщению. Актуальное поведение описано в
+> разделе «Уточнения дизайна» файла
+> `docs/superpowers/specs/2026-07-27-userbot-poller-fallback-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Добавить поллер, который периодически читает историю мониторинг-каналов через `get_chat_history` и отдаёт новые сообщения в существующий обработчик, чтобы посты доходили даже когда push-апдейты Telegram по каналу не приходят.
