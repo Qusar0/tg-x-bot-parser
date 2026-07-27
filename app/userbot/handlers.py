@@ -96,11 +96,9 @@ class Handlers:
 
             logger.info(f"Чат {message.chat.id} ({candidate.title}) найден в базе данных")
 
-            if await poller_state.is_seen(message.chat.id, message.id):
+            if not await poller_state.claim_message(message.chat.id, message.id):
                 logger.info(f"[{instance_id}] Сообщение {message_key} уже обработано ранее, пропускаем")
                 return
-
-            await poller_state.mark_seen(message.chat.id, message.id)
 
             # Если у мониторинг чата есть централ чат то отправляем в него сообщение, если нет то логика прежняя
             # Получаем central_chat_id мониторинг чата

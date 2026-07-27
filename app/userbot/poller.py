@@ -116,9 +116,6 @@ class ChannelPoller:
         for message in new_messages:
             max_id = max(max_id, message.id)
 
-            if await state.is_seen(chat_id, message.id):
-                continue
-
             try:
                 await handler(client, message)
                 processed += 1

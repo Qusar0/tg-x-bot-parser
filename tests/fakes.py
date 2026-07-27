@@ -31,21 +31,14 @@ class FakeClient:
 
 
 class FakeState:
-    def __init__(self, last_ids=None, seen=None):
+    def __init__(self, last_ids=None):
         self.last_ids = dict(last_ids or {})
-        self.seen = set(seen or [])
 
     async def get_last_id(self, chat_id):
         return self.last_ids.get(chat_id)
 
     async def set_last_id(self, chat_id, message_id):
         self.last_ids[chat_id] = message_id
-
-    async def is_seen(self, chat_id, message_id):
-        return (chat_id, message_id) in self.seen
-
-    async def mark_seen(self, chat_id, message_id):
-        self.seen.add((chat_id, message_id))
 
 
 class RecordingHandler:

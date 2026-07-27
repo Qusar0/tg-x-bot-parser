@@ -56,13 +56,24 @@ async def test_get_last_id_returns_none_on_broken_value(store):
     assert await poller_state.get_last_id(-100500) is None
 
 
-async def test_seen_marks_message_with_ttl(store):
-    assert await poller_state.is_seen(-100500, 7) is False
-
-    await poller_state.mark_seen(-100500, 7)
-
-    assert await poller_state.is_seen(-100500, 7) is True
+async def test_claim_message_succeeds_once_with_ttl(store):
+    assert await poller_state.claim_message(-100500, 7) is True
     assert store.ttls["poller:seen:-100500:7"] == poller_state.SEEN_TTL_SEC
+
+
+async def test_claim_message_fails_on_repeat_claim(store):
+    assert await poller_state.claim_message(-100500, 7) is True
+
+    assert await poller_state.claim_message(-100500, 7) is False
+
+
+async def test_claim_message_is_independent_per_message_and_chat(store):
+    """Регрессия: захват одного сообщения не должен блокировать другое сообщение
+    того же чата или то же сообщение другого чата — ключ учитывает оба поля."""
+    assert await poller_state.claim_message(-100500, 7) is True
+
+    assert await poller_state.claim_message(-100500, 8) is True
+    assert await poller_state.claim_message(-100600, 7) is True
 
 
 async def test_claim_group_send_succeeds_once_with_ttl(store):

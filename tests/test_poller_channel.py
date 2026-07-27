@@ -55,16 +55,26 @@ async def test_old_messages_are_not_processed():
     assert handler.calls == []
 
 
-async def test_seen_message_is_skipped_but_position_advances():
+async def test_all_new_messages_reach_handler_without_poller_side_dedup():
+    """Поллер больше не решает сам, обрабатывать ли сообщение, сверяясь с
+    отметкой о том, что оно уже обработано (раньше — своя проверка перед
+    вызовом handler). Это решение теперь исключительно за обработчиком
+    (атомарный claim_message): если бы поллер продолжил сам отбраковывать
+    сообщения неатомарно относительно захвата в обработчике, могла бы
+    вернуться дыра — сообщение потерялось бы, если кто-то другой уже
+    застолбил ключ, но ничего не отправил. Поэтому каждое новое сообщение
+    обязано дойти до handler ровно один раз за обход, а position должен
+    продвинуться до самого свежего id независимо от этого.
+    """
     messages = [FakeMessage(102, CHAT_ID), FakeMessage(101, CHAT_ID)]
-    state = FakeState(last_ids={CHAT_ID: 100}, seen={(CHAT_ID, 101)})
+    state = FakeState(last_ids={CHAT_ID: 100})
     handler = RecordingHandler()
     poller = make_poller({CHAT_ID: messages}, state, handler)
 
     processed = await poller.poll_channel(CHAT_ID, limit=50)
 
-    assert processed == 1
-    assert handler.calls == [102]
+    assert processed == 2
+    assert handler.calls == [101, 102]
     assert state.last_ids[CHAT_ID] == 102
 
 

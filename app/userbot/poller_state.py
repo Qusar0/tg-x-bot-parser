@@ -40,14 +40,20 @@ async def set_last_id(chat_id: int, message_id: int) -> None:
     await _get_store().set_value(LAST_ID_KEY.format(chat_id=chat_id), str(message_id))
 
 
-async def is_seen(chat_id: int, message_id: int) -> bool:
-    key = SEEN_KEY.format(chat_id=chat_id, message_id=message_id)
-    return await _get_store().get_value(key) is not None
+async def claim_message(chat_id: int, message_id: int) -> bool:
+    """Атомарно захватывает право обработать сообщение (SET NX EX).
 
+    Между проверкой "не обработано ли уже" и последующей отметкой раньше был
+    await, на котором живой push-апдейт и обход поллера могли одновременно
+    проскочить проверку и оба отправить сообщение дальше. Захват через
+    set_if_absent убирает это окно: побеждает тот, кто застолбил ключ первым.
 
-async def mark_seen(chat_id: int, message_id: int) -> None:
+    Возвращает True, если сообщение видим впервые и его нужно обрабатывать,
+    False — если ключ уже занят (кто-то другой уже обрабатывает или обработал
+    это сообщение).
+    """
     key = SEEN_KEY.format(chat_id=chat_id, message_id=message_id)
-    await _get_store().set_value_ex(key, "1", SEEN_TTL_SEC)
+    return await _get_store().set_if_absent(key, "1", SEEN_TTL_SEC)
 
 
 async def claim_group_send(chat_id: int, media_group_id: str, dest_chat_id: int) -> bool:
