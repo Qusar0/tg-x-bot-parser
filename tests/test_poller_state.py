@@ -67,6 +67,14 @@ async def test_claim_message_fails_on_repeat_claim(store):
     assert await poller_state.claim_message(-100500, 7) is False
 
 
+async def test_release_message_allows_claim_again(store):
+    assert await poller_state.claim_message(-100500, 7) is True
+
+    await poller_state.release_message(-100500, 7)
+
+    assert await poller_state.claim_message(-100500, 7) is True
+
+
 async def test_claim_message_is_independent_per_message_and_chat(store):
     """Регрессия: захват одного сообщения не должен блокировать другое сообщение
     того же чата или то же сообщение другого чата — ключ учитывает оба поля."""

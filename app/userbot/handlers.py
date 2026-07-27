@@ -25,32 +25,41 @@ class Handlers:
 
     @staticmethod
     async def _send_to_central(chat_id: int, client, message, processed_text: str) -> None:
-        """Отправка в центральный чат. Альбом отправляется один раз на медиа-группу для каждого чата-получателя."""
-        if message.media_group_id:
-            group_id = str(message.media_group_id)
+        """Отправка в центральный чат. Альбом отправляется один раз на медиа-группу для каждого чата-получателя.
 
-            if not await poller_state.claim_group_send(message.chat.id, group_id, chat_id):
-                logger.info(f"Альбом {group_id} чата {message.chat.id} уже отправлен в чат {chat_id}, пропускаем")
+        Захват сообщения (claim_message) берётся раньше, в message_handler. Если отправка
+        падает с исключением, сообщение реально не доставлено — захват освобождается здесь,
+        чтобы повтор остался возможным, а исключение пробрасывается дальше, как и раньше.
+        """
+        try:
+            if message.media_group_id:
+                group_id = str(message.media_group_id)
+
+                if not await poller_state.claim_group_send(message.chat.id, group_id, chat_id):
+                    logger.info(f"Альбом {group_id} чата {message.chat.id} уже отправлен в чат {chat_id}, пропускаем")
+                    return
+
+                try:
+                    await BotManager.send_media_group_from_userbot(
+                        chat_id,
+                        client,
+                        message.chat.id,
+                        group_id,
+                        processed_text,
+                    )
+                except Exception:
+                    await poller_state.release_group_send(message.chat.id, group_id, chat_id)
+                    raise
                 return
 
-            try:
-                await BotManager.send_media_group_from_userbot(
-                    chat_id,
-                    client,
-                    message.chat.id,
-                    group_id,
-                    processed_text,
-                )
-            except Exception:
-                await poller_state.release_group_send(message.chat.id, group_id, chat_id)
-                raise
-            return
+            if getattr(message, "photo", None):
+                await BotManager.send_photo_from_userbot(chat_id, client, message, processed_text)
+                return
 
-        if getattr(message, "photo", None):
-            await BotManager.send_photo_from_userbot(chat_id, client, message, processed_text)
-            return
-
-        await BotManager.send_message(chat_id, processed_text)
+            await BotManager.send_message(chat_id, processed_text)
+        except Exception:
+            await poller_state.release_message(message.chat.id, message.id)
+            raise
 
     @staticmethod
     async def message_handler(client: Client, message: types.Message):

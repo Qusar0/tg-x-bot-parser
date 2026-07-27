@@ -56,6 +56,12 @@ async def claim_message(chat_id: int, message_id: int) -> bool:
     return await _get_store().set_if_absent(key, "1", SEEN_TTL_SEC)
 
 
+async def release_message(chat_id: int, message_id: int) -> None:
+    """Освобождает захват, чтобы повторная обработка сообщения осталась возможной."""
+    key = SEEN_KEY.format(chat_id=chat_id, message_id=message_id)
+    await _get_store().delete_key(key)
+
+
 async def claim_group_send(chat_id: int, media_group_id: str, dest_chat_id: int) -> bool:
     """Атомарно захватывает право отправить альбом в dest_chat_id.
 
