@@ -11,6 +11,10 @@ default_data = {
     "x_channels_min_rating": 0,
     "source_tg": True,
     "source_x": True,
+    "poller_enabled": True,
+    "poller_interval_sec": 300,
+    "poller_limit": 50,
+    "poller_channel_delay_sec": 2,
 }
 filename = "settings.json"
 
@@ -52,6 +56,18 @@ class Settings:
 
     def get_admins(self) -> list[int]:
         return self.settings["admins"]
+
+    def get_poller_enabled(self) -> bool:
+        return bool(self.settings.get("poller_enabled", True))
+
+    def get_poller_interval_sec(self) -> int:
+        return int(self.settings.get("poller_interval_sec", 300))
+
+    def get_poller_limit(self) -> int:
+        return int(self.settings.get("poller_limit", 50))
+
+    def get_poller_channel_delay_sec(self) -> int:
+        return int(self.settings.get("poller_channel_delay_sec", 2))
 
     def get_template(self) -> str:
         return "🕹 Здравствуйте, добро пожаловать в панель управления:"
