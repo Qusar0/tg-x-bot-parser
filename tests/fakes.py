@@ -1,11 +1,16 @@
 """Фейки для тестов поллера: без реальных Telegram и Redis."""
 
+from datetime import datetime
+
 
 class FakeMessage:
-    def __init__(self, message_id: int, chat_id: int, media_group_id=None):
+    def __init__(self, message_id: int, chat_id: int, media_group_id=None, date=None):
         self.id = message_id
         self.chat = type("Chat", (), {"id": chat_id})()
         self.media_group_id = media_group_id
+        # По умолчанию сообщение считается свежим (текущее время), чтобы
+        # существующие тесты, не задающие date, продолжали работать без изменений.
+        self.date = date if date is not None else datetime.now()
 
 
 class FakeClient:

@@ -46,6 +46,7 @@ class Handlers:
                         message.chat.id,
                         group_id,
                         processed_text,
+                        anchor_message_id=message.id,
                     )
                 except Exception:
                     await poller_state.release_group_send(message.chat.id, group_id, chat_id)
@@ -80,7 +81,10 @@ class Handlers:
 
             message_key = f"{message.chat.id}:{message.id}"
             if message_key in Handlers._processed_messages:
-                logger.warning(f"[{instance_id}] ДУБЛИКАТ! Сообщение уже обработано: {message.link}")
+                # Штатная ситуация: для каналов, где push уже работает, поллер в
+                # пределах своей задержки повторно принесёт то же сообщение —
+                # это не авария и не должно шуметь в логах уровнем warning.
+                logger.info(f"[{instance_id}] Сообщение уже обработано в этой сессии: {message.link}")
                 return
 
             logger.info(f"[{instance_id}] Добавляем сообщение в кэш: {message_key}")
@@ -218,3 +222,14 @@ class Handlers:
             logger.warning(f"PeerIdInvalid error in message handler: {e}")
         except Exception as e:
             logger.error(f"Error in message handler: {e}")
+            # Захват (claim_message) мог быть взят раньше в этом конвейере (проверки в
+            # БД/Redis между claim и фактической отправкой). Если сюда попали — сообщение
+            # реально не доставлено, и держать захват все оставшиеся 48 часов TTL нельзя:
+            # позиция поллера уже уехала вперёд, и без освобождения сообщение потеряется
+            # безвозвратно. Освобождение безвредно, даже если claim не был взят вовсе —
+            # удаление несуществующего ключа не ошибка. Ошибку самого освобождения
+            # подавляем, чтобы не превратить один сбой в другой.
+            try:
+                await poller_state.release_message(message.chat.id, message.id)
+            except Exception as release_ex:
+                logger.error(f"Ошибка освобождения захвата сообщения: {release_ex}")

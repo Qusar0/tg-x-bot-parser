@@ -15,6 +15,7 @@ default_data = {
     "poller_interval_sec": 300,
     "poller_limit": 50,
     "poller_channel_delay_sec": 2,
+    "poller_max_age_sec": 3600,
 }
 filename = "settings.json"
 
@@ -48,7 +49,14 @@ class Settings:
             self._save_settings()
         else:
             with open(self.filename) as f:
-                self.settings = json.load(f)
+                loaded = json.load(f)
+
+            # Сливаем с дефолтами: значения из файла имеют приоритет, а ключи,
+            # появившиеся в default_data после создания файла (например,
+            # новые настройки поллера), доезжают до settings.json, а не
+            # остаются доступны только через .get() с дефолтом в геттерах.
+            self.settings = {**default_data, **loaded}
+            self._save_settings()
 
     def _save_settings(self):
         with open(self.filename, "w") as f:
@@ -68,6 +76,9 @@ class Settings:
 
     def get_poller_channel_delay_sec(self) -> int:
         return int(self.settings.get("poller_channel_delay_sec", 2))
+
+    def get_poller_max_age_sec(self) -> int:
+        return int(self.settings.get("poller_max_age_sec", 3600))
 
     def get_template(self) -> str:
         return "🕹 Здравствуйте, добро пожаловать в панель управления:"

@@ -5,12 +5,21 @@
 по каналу не приходят.
 """
 import asyncio
+import time
 
 from loguru import logger
 from pyrogram.errors import FloodWait
 
 
 class ChannelPoller:
+    # Безопасный интервал на случай, если сами настройки не читаются (например,
+    # некорректное значение poller_interval_sec в settings.json роняет int(...)
+    # внутри геттера ещё до того, как рабочий интервал стал известен).
+    DEFAULT_INTERVAL_SEC = 300
+    # Нижняя граница интервала: нулевой/отрицательный интервал из настроек даст
+    # asyncio.sleep(0/отрицательное) — горячий цикл, выжирающий CPU.
+    MIN_INTERVAL_SEC = 30
+
     def __init__(
         self,
         client=None,
@@ -67,8 +76,16 @@ class ChannelPoller:
 
         return await ChatRepo.get_monitoring_chats()
 
-    async def poll_channel(self, chat_id: int, limit: int) -> int:
-        """Читает новые сообщения канала и отдаёт их в обработчик."""
+    async def poll_channel(self, chat_id: int, limit: int, max_age_sec: int | None = None) -> int:
+        """Читает новые сообщения канала и отдаёт их в обработчик.
+
+        max_age_sec — порог возраста сообщения в секундах. Сообщения старше порога
+        не передаются в обработчик (это защита от вывала бэклога после простоя
+        поллера), но позиция (max_id) всё равно уезжает вперёд через них, иначе
+        канал застрянет на старом хвосте навсегда. None отключает проверку возраста
+        (используется, когда вызывающий код не заботится о возрасте, например в
+        существующих тестах, не передающих этот параметр).
+        """
         client = self._get_client()
         state = self._get_state()
 
@@ -112,9 +129,20 @@ class ChannelPoller:
         handler = self._get_handler()
         processed = 0
         max_id = last_id
+        now = time.time()
 
         for message in new_messages:
             max_id = max(max_id, message.id)
+
+            message_date = getattr(message, "date", None)
+            if max_age_sec is not None and message_date is not None:
+                age_sec = now - message_date.timestamp()
+                if age_sec > max_age_sec:
+                    logger.info(
+                        f"Поллер: канал {chat_id} — сообщение {message.id} пропущено "
+                        f"по возрасту ({age_sec:.0f} сек > {max_age_sec} сек), позиция сдвинута"
+                    )
+                    continue
 
             try:
                 await handler(client, message)
@@ -137,13 +165,14 @@ class ChannelPoller:
         config = self._get_settings()
         limit = config.get_poller_limit()
         delay = config.get_poller_channel_delay_sec()
+        max_age_sec = config.get_poller_max_age_sec()
 
         logger.info(f"Поллер: начинаем обход, каналов: {len(chats)}")
 
         total = 0
         for chat in chats:
             try:
-                total += await self.poll_channel(chat.telegram_id, limit)
+                total += await self.poll_channel(chat.telegram_id, limit, max_age_sec)
             except FloodWait as ex:
                 logger.warning(
                     f"Поллер: FloodWait {ex.value} сек на канале {chat.telegram_id}, ждём"
@@ -158,25 +187,38 @@ class ChannelPoller:
         return total
 
     async def start(self) -> None:
-        """Бесконечный цикл обходов с интервалом из настроек."""
+        """Бесконечный цикл обходов с интервалом из настроек.
+
+        Тело итерации целиком обёрнуто в try — ошибка в настройках (например,
+        нечисловое или отсутствующее значение poller_interval_sec в
+        settings.json, из-за которого int(...) в геттере бросает исключение)
+        не должна убивать цикл: иначе вместе с поллером в asyncio.gather без
+        return_exceptions упадёт весь процесс — и бот, и юзербот. При ошибке
+        пауза берётся по безопасному интервалу по умолчанию.
+        """
         logger.info("Поллер: запущен")
 
         while True:
-            config = self._get_settings()
-            interval = config.get_poller_interval_sec()
-
-            if not config.get_poller_enabled():
-                await self._sleep(interval)
-                continue
-
-            client = self._get_client()
-            if not getattr(client, "is_connected", False):
-                logger.info("Поллер: userbot ещё не подключён, ждём следующей итерации")
-                await self._sleep(interval)
-                continue
-
+            interval = self.DEFAULT_INTERVAL_SEC
             try:
-                await self.poll_once()
+                config = self._get_settings()
+                interval = config.get_poller_interval_sec()
+
+                if interval < self.MIN_INTERVAL_SEC:
+                    logger.warning(
+                        f"Поллер: интервал {interval} сек некорректен (меньше "
+                        f"{self.MIN_INTERVAL_SEC}), используем минимальный"
+                    )
+                    interval = self.MIN_INTERVAL_SEC
+
+                if not config.get_poller_enabled():
+                    logger.info("Поллер: выключен настройкой, ждём следующей итерации")
+                else:
+                    client = self._get_client()
+                    if not getattr(client, "is_connected", False):
+                        logger.info("Поллер: userbot ещё не подключён, ждём следующей итерации")
+                    else:
+                        await self.poll_once()
             except Exception as ex:
                 logger.error(f"Поллер: ошибка обхода: {ex}")
 
