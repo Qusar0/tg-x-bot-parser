@@ -1,0 +1,2 @@
+class NoPostsProvided(Exception):
+    pass

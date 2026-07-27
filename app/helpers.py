@@ -2,23 +2,35 @@ import re
 import aiohttp
 import bleach
 import html
+from typing import Optional
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from app.database.models.Word import Word
 from app.database.redis import redis_store
 from app.settings import settings
 
-POST_KEY = "post:{id}"
+POST_KEY = "post:{chat}:{id}"
 
 
-async def is_duplicate(id: str, original_text: str) -> bool:
+async def is_duplicate(id: str, original_text: str, chat_id: int | None = None) -> bool:
     original_text = original_text.lower()
     from loguru import logger
 
     try:
+        chat_key = chat_id if chat_id is not None else "global"
+        key = POST_KEY.format(chat=chat_key, id=id)
+
+        # 1. Быстрая проверка: уже есть запись с таким ID
+        # Если мы уже когда‑то обрабатывали этот твит (ID уникален),
+        # то независимо от изменений текста считаем его дубликатом.
+        existing_by_id = await redis_store.get_value(key)
+        if existing_by_id is not None:
+            logger.info(f"Найден дубликат по ID в Redis: {id}")
+            return True
+
         # Сначала проверяем, есть ли уже такой текст в Redis
         # Используем более эффективный подход - проверяем только недавние посты
-        recent_keys = await redis_store.keys(POST_KEY.format(id="*"))
+        recent_keys = await redis_store.keys(f"post:{chat_key}:*")
         
         if recent_keys:
             # Ограничиваем количество проверяемых ключей для производительности
@@ -30,7 +42,11 @@ async def is_duplicate(id: str, original_text: str) -> bool:
             # Получаем значения только для выбранных ключей
             texts = await redis_store.redis.mget(recent_keys) if recent_keys else []
             
-            logger.info(f"Проверяем дубликаты для ID: {id}, проверяем {len(texts)} из {len(await redis_store.keys(POST_KEY.format(id='*')))} текстов в Redis")
+            logger.info(
+                f"Проверяем дубликаты для ID: {id}, "
+                f"проверяем {len(texts)} из "
+                f"{len(await redis_store.keys(POST_KEY.format(chat=chat_key, id='*')))} текстов в Redis"
+            )
             
             # Проверяем, что texts не None и не пустой
             if texts:
@@ -39,9 +55,13 @@ async def is_duplicate(id: str, original_text: str) -> bool:
                         logger.info(f"Найден дубликат! ID: {id}, совпадение с текстом #{i}")
                         return True
 
-        # Сохраняем новый пост с TTL 2 часа
-        await redis_store.set_value_ex(POST_KEY.format(id=id), original_text, 60 * 60 * 2)
-        logger.info(f"Сохраняем новый пост в Redis: {id} (TTL: 2 часа)")
+        # Сохраняем новый пост с TTL 24 часа
+        # В XScrapper мы рассматриваем посты возрастом до 24 часов (см. parse_posts),
+        # поэтому, чтобы один и тот же твит не пересылался повторно в течение суток,
+        # TTL должен быть не меньше этого окна.
+        ttl_seconds = 60 * 60 * 24
+        await redis_store.set_value_ex(key, original_text, ttl_seconds)
+        logger.info(f"Сохраняем новый пост в Redis: {id} (chat={chat_key}) (TTL: 24 часа)")
         return False
     except Exception as e:
         # Если Redis недоступен, логируем ошибку и продолжаем без проверки дубликатов
@@ -49,9 +69,10 @@ async def is_duplicate(id: str, original_text: str) -> bool:
         return False
 
 
-async def get_fetched_post_ids():
-    keys: list[str] = await redis_store.keys(POST_KEY.format(id="*"))
-    return [key.split(":")[1] for key in keys]
+async def get_fetched_post_ids(chat_id: int | None = None):
+    chat_key = chat_id if chat_id is not None else "global"
+    keys: list[str] = await redis_store.keys(f"post:{chat_key}:*")
+    return [key.split(":")[2] for key in keys]
 
 
 async def cleanup_old_redis_data():
@@ -171,7 +192,7 @@ async def add_x_link(text: str, link: str, channel_rating: int = 0, channel_winr
     soup.append("\n\n")
     soup.append(rating_element)
     soup.append("\n")
-    winrate_text = f"%{channel_winrate}" if channel_winrate > 0 else "❌"
+    winrate_text = f"{channel_winrate}%" if channel_winrate > 0 else "❌"
     winrate_element = soup.new_string(f"Winrate: {winrate_text}\n")
     soup.append(winrate_element)
     soup.append("\n")
@@ -222,7 +243,7 @@ async def add_userbot_source_link(text: str, chat_title: str, chat_link: str, ch
     rating_text = f"⭐{rating}" if rating > 0 else "❌"
     rating_element = soup.new_string(f"Rating: {rating_text}\n")
 
-    winrate_text = f"%{winrate}" if winrate > 0 else "❌"
+    winrate_text = f"{winrate}%" if winrate > 0 else "❌"
     winrate_element = soup.new_string(f"Winrate: {winrate_text}\n")
 
     soup.append("\n\n")
@@ -273,25 +294,38 @@ def remove_keywords(text: str, keyword):
     Удаляет ключевые слова из текста.
     Работает с HTML разметкой и удаляет слова с учетом границ слов.
     Сохраняет форматирование и переносы строк.
+    Корректно обрабатывает смайлики и спецсимволы.
     """
     soup = BeautifulSoup(text, "html.parser")
+
+    # Получаем ключевое слово как строку
+    kw = keyword if isinstance(keyword, str) else keyword.title
+
+    # Экранируем спецсимволы в ключевом слове
+    escaped_kw = re.escape(kw)
+
+    # Паттерн для поиска слова с границами слов
+    # Используем negative lookbehind и lookahead для Unicode символов
+    pattern = r'(?<!\w)' + escaped_kw + r'(?!\w)'
 
     for element in soup.find_all(string=True):
         if not element.strip():
             continue
 
-        new_text = element
-        kw = keyword.title
+        original_text = element
 
-        pattern = r'\b' + re.escape(kw) + r'\b[ \t,\.!?;:]*'
+        # Удаляем ключевое слово
+        new_text = re.sub(pattern, '', original_text, flags=re.UNICODE | re.IGNORECASE)
 
-        new_text = re.sub(pattern, '', new_text, flags=re.IGNORECASE)
+        # Удаляем возможные пробелы после удаленного слова
+        new_text = re.sub(r' +', ' ', new_text)  # множественные пробелы -> один пробел
+        new_text = re.sub(r'\n\s+', '\n', new_text)  # пробелы после переноса строки
+        new_text = re.sub(r'\s+\n', '\n', new_text)  # пробелы перед переносом строки
+        new_text = re.sub(r'[ \t]+$', '', new_text, flags=re.MULTILINE)  # пробелы в конце строк
 
-        new_text = re.sub(r'[ \t]+', ' ', new_text)
-        new_text = re.sub(r'\n\s+', '\n', new_text)
-        new_text = re.sub(r'\s+\n', '\n', new_text)
-
-        element.replace_with(new_text)
+        # Если текст изменился, заменяем его
+        if new_text != original_text:
+            element.replace_with(new_text)
 
     return str(soup)
 
@@ -302,6 +336,7 @@ async def preprocess_text(
     allowed_tags=["a", "b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
     allowed_attrs={"a": ["href"]},
     platform: str = "tg",  # "tg" или "x"
+    central_chat_id: Optional[int] = None,  # Если есть централ чат берем фильтр слова по нему
 ) -> str:
     text = text.replace("<br/>", "\n").replace("<br>", "\n")
     text = text.replace("</p>", "\n").replace("<p>", "")
@@ -319,13 +354,16 @@ async def preprocess_text(
 
     from app.database.repo.Word import WordRepo
     from app.enums import WordType
-    
+
     # Выбираем фильтр-слова в зависимости от платформы
     if platform == "tg":
-        filter_words = await WordRepo.get_all(WordType.tg_filter_word)
+        if central_chat_id:
+            filter_words = await WordRepo.get_all_from_central_id(WordType.tg_filter_word, central_chat_id)
+        else:
+            filter_words = await WordRepo.get_all(WordType.tg_filter_word)
     else:  # x
         filter_words = await WordRepo.get_all(WordType.x_filter_word)
-    
+
     for filter_word in filter_words:
         text = remove_keywords(text, filter_word)
 

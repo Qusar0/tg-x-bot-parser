@@ -18,8 +18,8 @@ x_channels_add_excel_cb = "x-channels-add-excel"
 x_channels_remove_cb = "x-channels-remove"
 x_channels_show_cb = "x-channels-show"
 x_channels_uploading_cb = "x-channels-excel"
-x_channels_rating_cb = "x-channels-rating"
-x_channels_without_rating_cb = "x-channels-without-rating"
+x_channels_change_rating_winrate_cb = "x_channels_change_rating_winrate_cb"
+x_channels_rating_winrate_cb = "x_channels_rating_winrate_cb"
 x_channels_re_evaluation_cb = "x-channels-re-evaluation"
 
 x_channels_choose_winrate = "x_channels_choose_winrate"
@@ -45,13 +45,12 @@ chats_central_add_me_cb = "add-me-central-chats"
 chats_load_from_account = "chats-load-from-account"
 
 chats_change_rating_cb = "chats-change-rating"
-chats_without_rating_cb = "chats-without-rating"
+chats_rating_winrate_cb = "chats_rating_winrate_cb"
 chats_re_evaluation_cb = "chats-re-evaluation"
 
 chats_choose_winrate = "chats_choose_winrate"
-chats_without_winrate_cb = "chats_without_winrate_cb"
 chats_winrate_evaluation_cb = "chats_winrate_evaluation_cb"
-
+chats_monitoring_delete_chat_cb = 'chats_monitoring_delete_chat_cb'
 
 
 class ChatRatingCb(CallbackData, prefix="cr"):
@@ -67,8 +66,9 @@ class ChooseCentralChatForWordCb(CallbackData, prefix="pqt-1"):
 class ChatsCentralDeleteCb(CallbackData, prefix="clv"):
     chat_id: int
 
+
 class ChatsCentralChooseCb(CallbackData, prefix="ccc"):
-    chat_id: int
+    chat_id: int | None
 
 
 class ChooseChatCb(CallbackData, prefix="l-m-a-t-d"):
@@ -76,12 +76,32 @@ class ChooseChatCb(CallbackData, prefix="l-m-a-t-d"):
     page: int
     is_choose: bool = False
 
+class ChooseChatRemoveCb(CallbackData, prefix="choose-remove-chat"):
+    chat_id: int
+    page: int
+    is_choose: bool = False    
+
 
 chats_add_loaded_chat_cb = "chats-load-add-chat"
 
 
 class NavigationChatCb(CallbackData, prefix="oitg"):
     direction: str
+    page: int
+
+
+class NavigationChatRemoveCb(CallbackData, prefix="navigation-remove-chat"):
+    direction: str
+    page: int
+
+
+class ChatsShowNavCb(CallbackData, prefix="csh-nav"):
+    direction: str  # "left" | "right"
+    page: int
+
+
+class XChannelsShowNavCb(CallbackData, prefix="xch-nav"):
+    direction: str  # "left" | "right"
     page: int
 
 

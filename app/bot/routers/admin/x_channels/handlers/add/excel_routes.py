@@ -70,15 +70,13 @@ async def process_x_channels_excel_file(message: types.Message, state: FSMContex
         for channel_data in channels:
             try:
                 # Проверяем, не существует ли уже такой канал
-                existing_channel = await XChannelRepo.get_by_url(channel_data['link'])
-                if existing_channel:
-                    skipped_count += 1
-                    logger.info(f"Канал {channel_data['name']} уже существует, пропускаем")
-                    continue
-                
-                # Получаем central_chat_id из state
                 data = await state.get_data()
                 central_chat_id = data.get('target_chat_id')
+                existing_channel = await XChannelRepo.get_by_url_and_central_chat(channel_data['link'], central_chat_id)
+                if existing_channel:
+                    skipped_count += 1
+                    logger.info(f"Канал {channel_data['name']} уже существует для выбранного центрального чата, пропускаем")
+                    continue
                 
                 # Добавляем канал
                 await XChannelRepo.add(channel_data['name'], channel_data['link'], central_chat_id=central_chat_id)

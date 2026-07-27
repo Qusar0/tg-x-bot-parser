@@ -2,7 +2,9 @@ from loguru import logger
 from pyrogram import Client, types
 from pyrogram.errors import PeerIdInvalid
 from app.database.repo.Chat import ChatRepo
-from app.userbot.filters.is_word_match import is_word_match
+from app.database.repo.Word import WordRepo
+from app.userbot.filters.is_word_match import is_word_match, get_matched_words
+from app.userbot import poller_state
 from app.enums import WordType
 from app.bot.Manager import BotManager
 from app.helpers import is_duplicate, preprocess_text, add_userbot_source_link
@@ -20,7 +22,46 @@ class Handlers:
             import uuid
             cls._instance_id = str(uuid.uuid4())[:8]
         return cls._instance_id
-    
+
+    @staticmethod
+    async def _send_to_central(chat_id: int, client, message, processed_text: str) -> None:
+        """Отправка в центральный чат. Альбом отправляется один раз на медиа-группу для каждого чата-получателя.
+
+        Захват сообщения (claim_message) берётся раньше, в message_handler. Если отправка
+        падает с исключением, сообщение реально не доставлено — захват освобождается здесь,
+        чтобы повтор остался возможным, а исключение пробрасывается дальше, как и раньше.
+        """
+        try:
+            if message.media_group_id:
+                group_id = str(message.media_group_id)
+
+                if not await poller_state.claim_group_send(message.chat.id, group_id, chat_id):
+                    logger.info(f"Альбом {group_id} чата {message.chat.id} уже отправлен в чат {chat_id}, пропускаем")
+                    return
+
+                try:
+                    await BotManager.send_media_group_from_userbot(
+                        chat_id,
+                        client,
+                        message.chat.id,
+                        group_id,
+                        processed_text,
+                        anchor_message_id=message.id,
+                    )
+                except Exception:
+                    await poller_state.release_group_send(message.chat.id, group_id, chat_id)
+                    raise
+                return
+
+            if getattr(message, "photo", None):
+                await BotManager.send_photo_from_userbot(chat_id, client, message, processed_text)
+                return
+
+            await BotManager.send_message(chat_id, processed_text)
+        except Exception:
+            await poller_state.release_message(message.chat.id, message.id)
+            raise
+
     @staticmethod
     async def message_handler(client: Client, message: types.Message):
         try:
@@ -37,15 +78,18 @@ class Handlers:
             if not text:
                 logger.info("Сообщение не содержит текста, пропускаем")
                 return
-            
+
             message_key = f"{message.chat.id}:{message.id}"
             if message_key in Handlers._processed_messages:
-                logger.warning(f"[{instance_id}] ДУБЛИКАТ! Сообщение уже обработано: {message.link}")
+                # Штатная ситуация: для каналов, где push уже работает, поллер в
+                # пределах своей задержки повторно принесёт то же сообщение —
+                # это не авария и не должно шуметь в логах уровнем warning.
+                logger.info(f"[{instance_id}] Сообщение уже обработано в этой сессии: {message.link}")
                 return
-            
+
             logger.info(f"[{instance_id}] Добавляем сообщение в кэш: {message_key}")
             Handlers._processed_messages.add(message_key)
-            
+
             # Более частое и эффективное очищение кэша
             if len(Handlers._processed_messages) > Handlers._max_cache_size:
                 logger.info(f"[{instance_id}] Очищаем старые записи из кэша (было: {len(Handlers._processed_messages)})")
@@ -64,6 +108,56 @@ class Handlers:
                 return
 
             logger.info(f"Чат {message.chat.id} ({candidate.title}) найден в базе данных")
+
+            if not await poller_state.claim_message(message.chat.id, message.id):
+                logger.info(f"[{instance_id}] Сообщение {message_key} уже обработано ранее, пропускаем")
+                return
+
+            # Если у мониторинг чата есть централ чат то отправляем в него сообщение, если нет то логика прежняя
+            # Получаем central_chat_id мониторинг чата
+            monitoring_chat_central_id = candidate.central_chat_id
+            logger.info(f"Центральный чат мониторинга: {monitoring_chat_central_id}")
+
+            # Если у мониторинг чата не указан central_chat_id, идем дальше
+            if monitoring_chat_central_id:
+                logger.info(f"У мониторинг чата {candidate.telegram_id} найден central_chat_id: {monitoring_chat_central_id}")
+
+                # Гибридная логика: если у центрального чата заданы ключ-слова — фильтруем по ним,
+                # если ключ-слов нет — пересылаем всё (прежнее поведение до фильтрации по ключам)
+                central_keywords = await WordRepo.get_all_from_central_id(WordType.tg_keyword, monitoring_chat_central_id)
+                if central_keywords:
+                    keywords = get_matched_words(text, central_keywords)
+                    if not keywords:
+                        logger.info(f"В тексте не найдено ключевых слов (central={monitoring_chat_central_id}): {text[:100]}...")
+                        return
+                    logger.info(f"Найдено {len(keywords)} ключевых слов (central): {[kw.title for kw in keywords]}")
+                else:
+                    logger.info(f"У центрального чата {monitoring_chat_central_id} нет ключ-слов — пересылаем без фильтрации по ключам")
+
+                keyword = None
+                processed_text = await preprocess_text(
+                    text.html,
+                    keyword,
+                    allowed_tags=["b", "i", "u", "s", "em", "code", "stroke", "br", "p"],
+                    allowed_attrs={},
+                    platform="tg",
+                    central_chat_id=monitoring_chat_central_id
+                )
+
+                processed_text = await add_userbot_source_link(
+                    processed_text,
+                    candidate.title,
+                    candidate.link,
+                    message.chat.id
+                )
+
+                stopwords = await is_word_match(text, WordType.tg_stopword, monitoring_chat_central_id)
+                if stopwords:
+                    logger.info(f"Найдены стоп-слова, пропускаем сообщение: {[sw.title for sw in stopwords]}")
+                    return
+
+                await Handlers._send_to_central(monitoring_chat_central_id, client, message, processed_text)
+                return
 
             keywords = await is_word_match(text, WordType.tg_keyword)
             if not keywords:
@@ -88,40 +182,26 @@ class Handlers:
                 if keyword.central_chat_id not in central_chats:
                     central_chats[keyword.central_chat_id] = []
                 central_chats[keyword.central_chat_id].append(keyword)
-            
+
             logger.info(f"Найдено {len(central_chats)} центральных чатов для отправки")
-            
-            # Получаем central_chat_id мониторинг чата
-            monitoring_chat_central_id = candidate.central_chat_id
-            logger.info(f"Центральный чат мониторинга: {monitoring_chat_central_id}")
-            
-            # Если у мониторинг чата не указан central_chat_id, пропускаем
-            if not monitoring_chat_central_id:
-                logger.info(f"У мониторинг чата {candidate.telegram_id} не указан central_chat_id, пропускаем")
-                return
-            
-            # Проверяем соответствие: central_chat_id ключевого слова должен совпадать с central_chat_id мониторинг чата
+
             target_central_chats = {}
             for central_chat_id, chat_keywords_list in central_chats.items():
-                # Проверяем, что central_chat_id из ключевого слова совпадает с central_chat_id мониторинг чата
-                if central_chat_id != monitoring_chat_central_id:
-                    logger.info(f"Центральный чат {central_chat_id} из ключевого слова не совпадает с central_chat_id мониторинг чата {monitoring_chat_central_id}, пропускаем")
-                    continue
-                
+
                 # Получаем центральный чат из БД и проверяем, что он существует и является центральным
                 central_chat = await ChatRepo.get_by_telegram_id(central_chat_id)
                 if not central_chat or not central_chat.is_central:
                     logger.info(f"Центральный чат {central_chat_id} не найден в БД или не является центральным, пропускаем")
                     continue
-                
+
                 target_central_chats[central_chat_id] = chat_keywords_list
-            
+
             logger.info(f"Используем центральные чаты после проверки соответствия: {list(target_central_chats.keys())}")
-            
+
             for central_chat_id, chat_keywords in target_central_chats.items():
                 logger.info(f"Отправляем сообщение в центральный чат {central_chat_id} (найдено {len(chat_keywords)} ключевых слов)")
                 keyword = chat_keywords[0]
-                
+
                 processed_text = await preprocess_text(
                     text.html,
                     keyword,
@@ -137,19 +217,19 @@ class Handlers:
                     message.chat.id
                 )
 
-                if message.media_group_id:
-                    await BotManager.send_media_group_from_userbot(
-                        central_chat_id,
-                        client,
-                        message.chat.id,
-                        str(message.media_group_id),
-                        processed_text
-                    )
-                elif message.photo:
-                    await BotManager.send_photo_from_userbot(central_chat_id, client, message, processed_text)
-                else:
-                    await BotManager.send_message(central_chat_id, processed_text)
+                await Handlers._send_to_central(central_chat_id, client, message, processed_text)
         except PeerIdInvalid as e:
             logger.warning(f"PeerIdInvalid error in message handler: {e}")
         except Exception as e:
             logger.error(f"Error in message handler: {e}")
+            # Захват (claim_message) мог быть взят раньше в этом конвейере (проверки в
+            # БД/Redis между claim и фактической отправкой). Если сюда попали — сообщение
+            # реально не доставлено, и держать захват все оставшиеся 48 часов TTL нельзя:
+            # позиция поллера уже уехала вперёд, и без освобождения сообщение потеряется
+            # безвозвратно. Освобождение безвредно, даже если claim не был взят вовсе —
+            # удаление несуществующего ключа не ошибка. Ошибку самого освобождения
+            # подавляем, чтобы не превратить один сбой в другой.
+            try:
+                await poller_state.release_message(message.chat.id, message.id)
+            except Exception as release_ex:
+                logger.error(f"Ошибка освобождения захвата сообщения: {release_ex}")

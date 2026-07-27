@@ -1,13 +1,14 @@
 import asyncio
 import aiohttp
+import os
 from aiogram.utils.media_group import MediaGroupBuilder
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from loguru import logger
 from app.bot.loader import bot
 from app.helpers import check_valid_photo
 from app.database.repo.Chat import ChatRepo
 from aiogram.types import FSInputFile
 from aiogram.types.input_file import BufferedInputFile
-import os
 
 
 class BotManager:
@@ -85,16 +86,38 @@ class BotManager:
                                             source_chat_id: int,
                                             media_group_id: str,
                                             text: str,
-                                            reply_markup=None
+                                            reply_markup=None,
+                                            anchor_message_id: int | None = None,
                                             ):
-        """Отправка группы медиа из userbot в бот"""
+        """Отправка группы медиа из userbot в бот.
+
+        anchor_message_id (опционально) — id одного из сообщений альбома. Если передан,
+        группа ищется напрямую через get_media_group вместо сканирования 10 последних
+        сообщений истории канала: у поллера задержка до нескольких минут, и если канал
+        за это время выложил ещё ≥10 постов, скан истории альбом не найдёт (или найдёт
+        частично). При любой ошибке get_media_group (например, сообщение уже не часть
+        группы) поведение деградирует на прежний скан истории без изменений.
+        """
         try:
             messages = []
-            async for msg in userbot_client.get_chat_history(source_chat_id, limit=10):
-                if hasattr(msg, 'media_group_id') and str(msg.media_group_id) == media_group_id:
-                    messages.append(msg)
-                if len(messages) >= 10:
-                    break
+
+            if anchor_message_id is not None:
+                try:
+                    messages = await userbot_client.get_media_group(source_chat_id, anchor_message_id)
+                except Exception as ex:
+                    logger.warning(
+                        f"Не удалось получить медиа-группу {media_group_id} через якорь "
+                        f"{anchor_message_id} в чате {source_chat_id}, "
+                        f"деградируем на скан истории: {ex}"
+                    )
+                    messages = []
+
+            if not messages:
+                async for msg in userbot_client.get_chat_history(source_chat_id, limit=10):
+                    if hasattr(msg, 'media_group_id') and str(msg.media_group_id) == media_group_id:
+                        messages.append(msg)
+                    if len(messages) >= 10:
+                        break
 
             if not messages:
                 await bot.send_message(chat_id, text, reply_markup=reply_markup)

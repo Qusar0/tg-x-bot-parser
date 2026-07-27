@@ -33,7 +33,9 @@ class ExcelWordParser:
         words = []
 
         for _, row in df.iterrows():
-            word = str(row[column_name]).strip()
+            # Приводим к нижнему регистру, как и при ручном вводе (extract_words),
+            # иначе слова с заглавными буквами никогда не сматчатся
+            word = str(row[column_name]).strip().lower()
             if word and word != 'nan':
                 words.append(word)
 

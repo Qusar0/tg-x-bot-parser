@@ -4,7 +4,14 @@ from loguru import logger
 from typing import List, Union
 from aiogram import types
 from aiogram.fsm.context import FSMContext
-from pyrogram.errors import FloodWait, UserNotParticipant, UsernameNotOccupied, UsernameInvalid
+from pyrogram.errors import (
+    FloodWait,
+    UserNotParticipant,
+    UsernameNotOccupied,
+    UsernameInvalid,
+    ChannelInvalid,
+    ChannelPrivate
+)
 
 from app.bot.routers.admin.chats.Markup import Markup
 from app.userbot.userbot_manager import userbot_manager
@@ -13,7 +20,7 @@ from app.database.repo.Chat import ChatRepo
 
 from app.bot.routers.admin.chats.error_handlers import (
     error_flood_wait_handler,
-    error_handler,
+    error_handler_delete_chat,
     chat_not_exists_handler,
     error_username_not_occupied_handler
 )
@@ -33,14 +40,14 @@ async def send_deleted_chat_message_and_sleep(message: types.Message, chat_entit
     time_interval = config.get_sleep_time()
 
     if is_last:
-        await message.reply(
+        await message.answer(
             f"Чат <b>{chat_entity}</b> - удален! ✅",
             reply_markup=Markup.remove(),
         )
     else:
-        await message.reply(
+        await message.answer(
             f"Канал <b>{chat_entity}</b> - удален! ✅\n⏳ Сплю: {time_interval} сек",
-            reply_markup=Markup.cancel_action(),
+            reply_markup=Markup.back_monitoring_chat(),
         )
 
         await asyncio.sleep(time_interval)
@@ -49,16 +56,16 @@ async def send_deleted_chat_message_and_sleep(message: types.Message, chat_entit
 async def cancel_delete_chat(message: types.Message, state: FSMContext, is_done=True) -> None:
     try:
         if not is_done:
-            await message.answer("🚫 Отменяем удаление чатов", reply_markup=Markup.remove())
+            await message.edit_text("🚫 Отменяем удаление чатов")
 
         title = "Удаление чатов завершено.\n\n" if is_done else "Удаление чатов отменено.\n\n"
 
         deleted_usernames_count = len(global_state.deleted_usernames)
         deleted_error_usernames_count = len(global_state.deleted_error_usernames)
 
-        deleted_chats = "\n".join(global_state.deleted_usernames) if global_state.deleted_usernames else "Отсутствуют"
+        deleted_chats = "\n".join(str(x) for x in global_state.deleted_usernames) if global_state.deleted_usernames else "Отсутствуют"
         error_chats = (
-            "\n".join(global_state.deleted_error_usernames) if global_state.deleted_error_usernames else "Отсутствуют"
+            "\n".join(str(x) for x in global_state.deleted_error_usernames) if global_state.deleted_error_usernames else "Отсутствуют"
         )
 
         response_template = str(
@@ -83,14 +90,24 @@ async def cancel_delete_chat(message: types.Message, state: FSMContext, is_done=
 
 async def leave_chat(chat_entity: Union[str, int]) -> bool:
     try:
-        candidate = await ChatRepo.get_by_entity(chat_entity)
+        candidate = await ChatRepo.get_by_telegram_id(chat_entity)
         if not candidate:
             raise ChatNotExistError()
 
         await userbot_manager.leave_chat(chat_entity)
-
         await ChatRepo.delete(candidate.telegram_id)
+
         global_state.deleted_usernames.append(str(chat_entity))
+        return True
+    except ChannelPrivate:
+        logger.warning(f"Приватный канал: {chat_entity}")
+        await ChatRepo.delete(candidate.telegram_id)
+        global_state.deleted_usernames.append(chat_entity)
+        return True
+    except ChannelInvalid:
+        logger.warning(f"Неверный канал с ID: {chat_entity}")
+        await ChatRepo.delete(candidate.telegram_id)
+        global_state.deleted_usernames.append(chat_entity)
         return True
     except UserNotParticipant:
         logger.warning(f"Аккаунта нету в группе: {chat_entity}")
@@ -113,12 +130,14 @@ async def leave_chat(chat_entity: Union[str, int]) -> bool:
 
 
 async def start_delete_chat(message: types.Message, state: FSMContext, chat_entities: List[str]) -> None:
-    await message.answer(f"<b>Начинаю удаление, количество чатов: {len(chat_entities)}</b>")
+    await message.edit_text(f"<b>Начинаю удаление, количество чатов: {len(chat_entities)}</b>")
 
-    for chat_entity in chat_entities:
+    for chat_dict in chat_entities:
         try:
+            chat_entity = chat_dict.get('id') if chat_dict.get('entity') is None else chat_dict.get('entity')
+            chat_id = chat_dict.get('id')
             is_last = chat_entity == chat_entities[-1]
-            is_deleted = await leave_chat(chat_entity)
+            is_deleted = await leave_chat(chat_id)
             if is_deleted:
                 await send_deleted_chat_message_and_sleep(message, chat_entity, is_last)
         except ChatNotExistError:
@@ -128,6 +147,6 @@ async def start_delete_chat(message: types.Message, state: FSMContext, chat_enti
         except (UsernameNotOccupied, UsernameInvalid):
             await error_username_not_occupied_handler(message, chat_entity, is_last)
         except Exception as ex:
-            await error_handler(ex, message, chat_entity, is_last)
+            await error_handler_delete_chat(ex, message, chat_entity, is_last)
 
     return await cancel_delete_chat(message, state, True)

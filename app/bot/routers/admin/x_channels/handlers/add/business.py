@@ -63,28 +63,40 @@ async def process_manual_x_channel_input(message: types.Message, state: FSMConte
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
 
-        # Проверяем, что канал не существует
-        existing_channel = await XChannelRepo.get_by_url(url)
+        # Получаем выбранный центральный чат из state
+        data = await state.get_data()
+        central_chat_id = data.get('target_chat_id')
+
+        # Проверяем, что канал не существует для выбранного чата
+        existing_channel = await XChannelRepo.get_by_url_and_central_chat(url, central_chat_id)
         if existing_channel:
             await message.answer(
-                f"❌ Канал с URL {url} уже существует",
+                f"❌ Канал с URL {url} уже существует для выбранного центрального чата",
                 reply_markup=Markup.back_menu()
             )
             return
 
-        # Получаем central_chat_id из state
-        data = await state.get_data()
-        central_chat_id = data.get('target_chat_id')
-        
         # Добавляем канал
         channel = await XChannelRepo.add(title, url, central_chat_id=central_chat_id)
+        # await message.answer()
+        current_rating = f"Текущий рейтинг: {channel.rating} ⭐" if channel.rating > 0 else "Текущий рейтинг: ❌ не оценён"
+
         await message.answer(
-            f"✅ Канал <b>{channel.title}</b> добавлен!\n"
-            f"URL: {channel.url}",
-            reply_markup=Markup.back_menu()
+            f"<b>🏆 Оценка X канала</b>\n\n"
+            f"<b>Канал:</b> {channel.title}\n"
+            f"<b>URL:</b> {channel.url}\n"
+            f"<b>{current_rating}</b>\n\n"
+            "Выберите новый рейтинг от 1 до 10:",
+            reply_markup=Markup.rating_keyboard(channel.id)
         )
+        await state.set_state(XChannelStates.add_raiting_winrate)
+        # await message.answer(
+        #     f"✅ Канал <b>{channel.title}</b> добавлен!\n"
+        #     f"URL: {channel.url}",
+        #     reply_markup=Markup.back_menu()
+        # )
         
-        await state.clear()
+        # await state.clear()
         
     except Exception as e:
         logger.error(f"Ошибка при добавлении X канала: {e}")

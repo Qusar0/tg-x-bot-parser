@@ -31,6 +31,12 @@ class XChannelRepo:
         return channel
 
     @staticmethod
+    async def get_by_url_and_central_chat(url: str, central_chat_id: int | None) -> XChannel | None:
+        """Возвращает канал с тем же URL и привязкой к заданному центральному чату."""
+        channel = await XChannel.filter(url=url, central_chat_id=central_chat_id).first()
+        return channel
+
+    @staticmethod
     async def get_by_title(title: str) -> XChannel | None:
         """Поиск канала по названию (без учета регистра)"""
         channel = await XChannel.filter(title__icontains=title).first()

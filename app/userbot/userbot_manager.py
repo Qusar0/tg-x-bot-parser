@@ -11,12 +11,20 @@ from app.database.repo.Chat import ChatRepo
 
 class UserbotManager:
     def __init__(self, api_id: int, api_hash: str, phone_number: str):
+        proxy = {
+            "scheme": config.proxy.type,
+            "hostname": config.proxy.host,
+            "port": int(config.proxy.port),
+            "username": config.proxy.username,
+            "password": config.proxy.password,
+        }
         self.client = Client(
             "../userbot_pyrogram",
             api_id=api_id,
             api_hash=api_hash,
             phone_number=phone_number,
             parse_mode=enums.ParseMode.HTML,
+            proxy=proxy,
         )
 
     async def start(self):

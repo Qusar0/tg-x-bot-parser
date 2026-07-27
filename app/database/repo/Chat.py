@@ -51,6 +51,10 @@ class ChatRepo:
         chats = await Chat.filter(winrate__gt=min_winrate).all()
         return chats
 
+    @staticmethod
+    async def get_monitoring_chats() -> list[Chat]:
+        chats = await Chat.filter(is_central=False).all()
+        return chats
 
     @staticmethod
     async def update_rating(telegram_id: int, rating: int) -> bool:
@@ -61,6 +65,16 @@ class ChatRepo:
             return True
         return False
     
+    @staticmethod
+    async def set_central_chat_id(telegram_id: int, central_chat_id: int | None) -> bool:
+        """Обновить привязку мониторинг-чата к центральному чату."""
+        chat = await Chat.filter(telegram_id=telegram_id).first()
+        if chat:
+            chat.central_chat_id = central_chat_id
+            await chat.save()
+            return True
+        return False
+
     @staticmethod
     async def update_winrate(telegram_id: int, winrate: float) -> bool:
         chat = await Chat.filter(telegram_id=telegram_id).first()
@@ -115,3 +129,4 @@ class ChatRepo:
             if chat.central_chat_id == id:
                 return True
         return False
+

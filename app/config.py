@@ -35,14 +35,33 @@ class Redis:
 
 
 @dataclass
+class Proxy:
+    type: str
+    host: str
+    port: str
+    username: str
+    password: str
+    url: str
+
+
+@dataclass
+class N8n:
+    check_channel_webhook_url: str
+    check_channel_timeout_seconds: int
+    check_channel_shared_secrets: str
+
+
+@dataclass
 class Config:
     bot: Bot
     userbot: Userbot
     db: DbConfig
     redis: Redis
+    proxy: Proxy
+    n8n: N8n
 
     def get_sleep_time(self) -> int:
-        return random.randint(120, 200)
+        return random.randint(1, 2)
 
 
 config = configparser.ConfigParser()
@@ -66,6 +85,18 @@ def check_values():
         assert "database" in config.sections(), "Отсутствует секция [database] в конфигурационном файле"
         assert config.get("database", "name"), "Отсутствует значение name в конфигурационном файле"
 
+        assert "proxy" in config.sections(), "Отсутствует секция [proxy] в конфигурационном файле"
+        assert config.get("proxy", "type"), "Отсутствует значение type в конфигурационном файле"
+        assert config.get("proxy", "host"), "Отсутствует значение host в конфигурационном файле"
+        assert config.get("proxy", "port"), "Отсутствует значение port в конфигурационном файле"
+        assert config.get("proxy", "username"), "Отсутствует значение username в конфигурационном файле"
+        assert config.get("proxy", "password"), "Отсутствует значение password в конфигурационном файле"
+
+        assert "n8n" in config.sections(), "Отсутствует секция [n8n] в конфигурационном файле"
+        assert config.get("n8n", "check_channel_webhook_url"), "Отсутствует значение check_channel_webhook_url в конфигурационном файле"
+        assert config.get("n8n", "check_channel_timeout_seconds"), "Отсутствует значение check_channel_timeout_seconds в конфигурационном файле"
+        assert config.get("n8n", "check_channel_shared_secrets"), "Отсутствует значение check_channel_shared_secrets в конфигурационном файле"
+
     except AssertionError as e:
         print("Ошибка:", e)
         time.sleep(10)  # Задержка на 10 секунд
@@ -83,6 +114,8 @@ def load_config():
     database_name = config["database"]["name"]
     bot = config["bot"]
     redis = config["redis"]
+    proxy_data = config['proxy']
+    n8n = config['n8n']
 
     return Config(
         bot=Bot(
@@ -100,6 +133,19 @@ def load_config():
             uri=f"redis://{redis['host']}:{redis['port']}",
         ),
         db=DbConfig(name=database_name, uri=f"sqlite://{database_name}.db"),
+        proxy=Proxy(
+            type=proxy_data['type'],
+            host=proxy_data['host'],
+            port=proxy_data['port'],
+            username=proxy_data['username'],
+            password=proxy_data['password'],
+            url=f"{proxy_data['type']}://{proxy_data['username']}:{proxy_data['password']}@{proxy_data['host']}:{proxy_data['port']}"
+        ),
+        n8n=N8n(
+            check_channel_webhook_url=n8n['check_channel_webhook_url'],
+            check_channel_timeout_seconds=n8n['check_channel_timeout_seconds'],
+            check_channel_shared_secrets=n8n['check_channel_shared_secrets'],
+        ),
     )
 
 
