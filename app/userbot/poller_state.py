@@ -7,7 +7,7 @@ from loguru import logger
 
 LAST_ID_KEY = "poller:last_id:{chat_id}"
 SEEN_KEY = "poller:seen:{chat_id}:{message_id}"
-GROUP_KEY = "poller:group:{chat_id}:{media_group_id}"
+GROUP_KEY = "poller:group:{chat_id}:{media_group_id}:{dest_chat_id}"
 
 SEEN_TTL_SEC = 48 * 60 * 60
 
@@ -50,11 +50,11 @@ async def mark_seen(chat_id: int, message_id: int) -> None:
     await _get_store().set_value_ex(key, "1", SEEN_TTL_SEC)
 
 
-async def is_group_sent(chat_id: int, media_group_id: str) -> bool:
-    key = GROUP_KEY.format(chat_id=chat_id, media_group_id=media_group_id)
+async def is_group_sent(chat_id: int, media_group_id: str, dest_chat_id: int) -> bool:
+    key = GROUP_KEY.format(chat_id=chat_id, media_group_id=media_group_id, dest_chat_id=dest_chat_id)
     return await _get_store().get_value(key) is not None
 
 
-async def mark_group_sent(chat_id: int, media_group_id: str) -> None:
-    key = GROUP_KEY.format(chat_id=chat_id, media_group_id=media_group_id)
+async def mark_group_sent(chat_id: int, media_group_id: str, dest_chat_id: int) -> None:
+    key = GROUP_KEY.format(chat_id=chat_id, media_group_id=media_group_id, dest_chat_id=dest_chat_id)
     await _get_store().set_value_ex(key, "1", SEEN_TTL_SEC)

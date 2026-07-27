@@ -29,11 +29,10 @@ class Handlers:
         if message.media_group_id:
             group_id = str(message.media_group_id)
 
-            if await poller_state.is_group_sent(message.chat.id, group_id):
-                logger.info(f"Альбом {group_id} чата {message.chat.id} уже отправлен, пропускаем")
+            if await poller_state.is_group_sent(message.chat.id, group_id, chat_id):
+                logger.info(f"Альбом {group_id} чата {message.chat.id} уже отправлен в чат {chat_id}, пропускаем")
                 return
 
-            await poller_state.mark_group_sent(message.chat.id, group_id)
             await BotManager.send_media_group_from_userbot(
                 chat_id,
                 client,
@@ -41,6 +40,7 @@ class Handlers:
                 group_id,
                 processed_text,
             )
+            await poller_state.mark_group_sent(message.chat.id, group_id, chat_id)
             return
 
         if getattr(message, "photo", None):
