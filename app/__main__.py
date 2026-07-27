@@ -22,6 +22,7 @@ async def main():
         elif os.environ["APP_CLIENT"] == "bot":
             from app.bot import run_bot
             from app.userbot.userbot_manager import userbot_manager
+            from app.userbot.poller import channel_poller
 
             # Запускаем планировщик очистки для бота
             await cleanup_scheduler.start()
@@ -30,6 +31,7 @@ async def main():
                 *[
                     userbot_manager.start(),
                     run_bot(),
+                    channel_poller.start(),
                 ],
             )
 
