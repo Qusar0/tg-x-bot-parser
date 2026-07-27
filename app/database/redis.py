@@ -33,6 +33,19 @@ class RedisStore:
         except Exception as e:
             logger.error(f"[REDIS_SET_VALUE_EX] '{key}' in Redis: {e}")
 
+    async def set_if_absent(self, key: str, value: str, expire_sec: int) -> bool:
+        """Атомарно захватывает ключ (SET NX EX), если он ещё не занят.
+
+        При недоступности Redis возвращает True (fail-open): для этого бота
+        потерять пост хуже, чем продублировать его.
+        """
+        try:
+            result = await self.redis.set(key, value, ex=expire_sec, nx=True)
+            return result is True
+        except Exception as e:
+            logger.error(f"[REDIS_SET_IF_ABSENT] '{key}' in Redis: {e}")
+            return True
+
     async def get_value(self, key: str):
         try:
             result = await self.redis.get(key)
@@ -65,6 +78,12 @@ class RedisStore:
             return result
         except Exception as e:
             logger.error(f"[REDIS_INCR] from Redis: {e}")
+
+    async def delete_key(self, key: str) -> None:
+        try:
+            await self.redis.delete(key)
+        except Exception as e:
+            logger.error(f"[REDIS_DELETE_KEY] '{key}' in Redis: {e}")
 
     async def delete_keys(self, pattern: str) -> int:
         """Удаляет ключи по паттерну и возвращает количество удаленных ключей"""

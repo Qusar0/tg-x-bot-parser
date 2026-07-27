@@ -20,6 +20,17 @@ class FakeRedisStore:
         self.data[key] = value
         self.ttls[key] = expire_sec
 
+    async def set_if_absent(self, key: str, value: str, expire_sec: int) -> bool:
+        if key in self.data:
+            return False
+        self.data[key] = value
+        self.ttls[key] = expire_sec
+        return True
+
+    async def delete_key(self, key: str) -> None:
+        self.data.pop(key, None)
+        self.ttls.pop(key, None)
+
 
 @pytest.fixture
 def store(monkeypatch):
@@ -54,28 +65,37 @@ async def test_seen_marks_message_with_ttl(store):
     assert store.ttls["poller:seen:-100500:7"] == poller_state.SEEN_TTL_SEC
 
 
-async def test_group_sent_marks_album_with_ttl(store):
-    assert await poller_state.is_group_sent(-100500, "13835058055", -200600) is False
-
-    await poller_state.mark_group_sent(-100500, "13835058055", -200600)
-
-    assert await poller_state.is_group_sent(-100500, "13835058055", -200600) is True
+async def test_claim_group_send_succeeds_once_with_ttl(store):
+    assert await poller_state.claim_group_send(-100500, "13835058055", -200600) is True
     assert store.ttls["poller:group:-100500:13835058055:-200600"] == poller_state.SEEN_TTL_SEC
 
 
-async def test_group_sent_is_scoped_per_destination_chat(store):
-    """Отметка альбома для одного чата-получателя не должна влиять на другой.
+async def test_claim_group_send_fails_on_repeat_claim(store):
+    assert await poller_state.claim_group_send(-100500, "13835058055", -200600) is True
+
+    assert await poller_state.claim_group_send(-100500, "13835058055", -200600) is False
+
+
+async def test_claim_group_send_is_scoped_per_destination_chat(store):
+    """Захват альбома для одного чата-получателя не должен блокировать другой.
 
     Регрессия: раньше ключ не учитывал чат-получателя, из-за чего при рассылке
     одного альбома в несколько центральных чатов второй и последующие получатели
-    молча не получали альбом (is_group_sent ошибочно возвращал True).
+    молча не получали альбом (claim для них ошибочно бы проваливался).
     """
     source_chat_id = -100500
     group_id = "13835058055"
     dest_chat_a = -200600
     dest_chat_b = -200700
 
-    await poller_state.mark_group_sent(source_chat_id, group_id, dest_chat_a)
+    assert await poller_state.claim_group_send(source_chat_id, group_id, dest_chat_a) is True
 
-    assert await poller_state.is_group_sent(source_chat_id, group_id, dest_chat_a) is True
-    assert await poller_state.is_group_sent(source_chat_id, group_id, dest_chat_b) is False
+    assert await poller_state.claim_group_send(source_chat_id, group_id, dest_chat_b) is True
+
+
+async def test_release_group_send_allows_claim_again(store):
+    assert await poller_state.claim_group_send(-100500, "13835058055", -200600) is True
+
+    await poller_state.release_group_send(-100500, "13835058055", -200600)
+
+    assert await poller_state.claim_group_send(-100500, "13835058055", -200600) is True

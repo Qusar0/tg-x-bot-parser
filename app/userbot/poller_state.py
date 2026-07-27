@@ -50,11 +50,17 @@ async def mark_seen(chat_id: int, message_id: int) -> None:
     await _get_store().set_value_ex(key, "1", SEEN_TTL_SEC)
 
 
-async def is_group_sent(chat_id: int, media_group_id: str, dest_chat_id: int) -> bool:
+async def claim_group_send(chat_id: int, media_group_id: str, dest_chat_id: int) -> bool:
+    """Атомарно захватывает право отправить альбом в dest_chat_id.
+
+    Возвращает True, если захват удался (можно отправлять), False — если
+    альбом уже захвачен (кто-то другой уже отправляет или отправил).
+    """
     key = GROUP_KEY.format(chat_id=chat_id, media_group_id=media_group_id, dest_chat_id=dest_chat_id)
-    return await _get_store().get_value(key) is not None
+    return await _get_store().set_if_absent(key, "1", SEEN_TTL_SEC)
 
 
-async def mark_group_sent(chat_id: int, media_group_id: str, dest_chat_id: int) -> None:
+async def release_group_send(chat_id: int, media_group_id: str, dest_chat_id: int) -> None:
+    """Освобождает захват, чтобы повторная отправка альбома осталась возможной."""
     key = GROUP_KEY.format(chat_id=chat_id, media_group_id=media_group_id, dest_chat_id=dest_chat_id)
-    await _get_store().set_value_ex(key, "1", SEEN_TTL_SEC)
+    await _get_store().delete_key(key)

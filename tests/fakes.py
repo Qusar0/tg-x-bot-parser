@@ -31,10 +31,9 @@ class FakeClient:
 
 
 class FakeState:
-    def __init__(self, last_ids=None, seen=None, groups=None):
+    def __init__(self, last_ids=None, seen=None):
         self.last_ids = dict(last_ids or {})
         self.seen = set(seen or [])
-        self.groups = set(groups or [])
 
     async def get_last_id(self, chat_id):
         return self.last_ids.get(chat_id)
@@ -47,12 +46,6 @@ class FakeState:
 
     async def mark_seen(self, chat_id, message_id):
         self.seen.add((chat_id, message_id))
-
-    async def is_group_sent(self, chat_id, media_group_id):
-        return (chat_id, media_group_id) in self.groups
-
-    async def mark_group_sent(self, chat_id, media_group_id):
-        self.groups.add((chat_id, media_group_id))
 
 
 class RecordingHandler:
