@@ -4,6 +4,7 @@ from pyrogram.errors import PeerIdInvalid
 from app.database.repo.Chat import ChatRepo
 from app.database.repo.Word import WordRepo
 from app.userbot.filters.is_word_match import is_word_match, get_matched_words
+from app.userbot import poller_state
 from app.enums import WordType
 from app.bot.Manager import BotManager
 from app.helpers import is_duplicate, preprocess_text, add_userbot_source_link
@@ -21,7 +22,33 @@ class Handlers:
             import uuid
             cls._instance_id = str(uuid.uuid4())[:8]
         return cls._instance_id
-    
+
+    @staticmethod
+    async def _send_to_central(chat_id: int, client, message, processed_text: str) -> None:
+        """Отправка в центральный чат. Альбом отправляется один раз на всю медиа-группу."""
+        if message.media_group_id:
+            group_id = str(message.media_group_id)
+
+            if await poller_state.is_group_sent(message.chat.id, group_id):
+                logger.info(f"Альбом {group_id} чата {message.chat.id} уже отправлен, пропускаем")
+                return
+
+            await poller_state.mark_group_sent(message.chat.id, group_id)
+            await BotManager.send_media_group_from_userbot(
+                chat_id,
+                client,
+                message.chat.id,
+                group_id,
+                processed_text,
+            )
+            return
+
+        if getattr(message, "photo", None):
+            await BotManager.send_photo_from_userbot(chat_id, client, message, processed_text)
+            return
+
+        await BotManager.send_message(chat_id, processed_text)
+
     @staticmethod
     async def message_handler(client: Client, message: types.Message):
         try:
@@ -66,6 +93,12 @@ class Handlers:
 
             logger.info(f"Чат {message.chat.id} ({candidate.title}) найден в базе данных")
 
+            if await poller_state.is_seen(message.chat.id, message.id):
+                logger.info(f"[{instance_id}] Сообщение {message_key} уже обработано ранее, пропускаем")
+                return
+
+            await poller_state.mark_seen(message.chat.id, message.id)
+
             # Если у мониторинг чата есть централ чат то отправляем в него сообщение, если нет то логика прежняя
             # Получаем central_chat_id мониторинг чата
             monitoring_chat_central_id = candidate.central_chat_id
@@ -109,18 +142,7 @@ class Handlers:
                     logger.info(f"Найдены стоп-слова, пропускаем сообщение: {[sw.title for sw in stopwords]}")
                     return
 
-                if message.media_group_id:
-                    await BotManager.send_media_group_from_userbot(
-                        monitoring_chat_central_id,
-                        client,
-                        message.chat.id,
-                        str(message.media_group_id),
-                        processed_text
-                    )
-                elif message.photo:
-                    await BotManager.send_photo_from_userbot(monitoring_chat_central_id, client, message, processed_text)
-                else:
-                    await BotManager.send_message(monitoring_chat_central_id, processed_text)
+                await Handlers._send_to_central(monitoring_chat_central_id, client, message, processed_text)
                 return
 
             keywords = await is_word_match(text, WordType.tg_keyword)
@@ -181,18 +203,7 @@ class Handlers:
                     message.chat.id
                 )
 
-                if message.media_group_id:
-                    await BotManager.send_media_group_from_userbot(
-                        central_chat_id,
-                        client,
-                        message.chat.id,
-                        str(message.media_group_id),
-                        processed_text
-                    )
-                elif message.photo:
-                    await BotManager.send_photo_from_userbot(central_chat_id, client, message, processed_text)
-                else:
-                    await BotManager.send_message(central_chat_id, processed_text)
+                await Handlers._send_to_central(central_chat_id, client, message, processed_text)
         except PeerIdInvalid as e:
             logger.warning(f"PeerIdInvalid error in message handler: {e}")
         except Exception as e:
