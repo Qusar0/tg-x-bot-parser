@@ -96,6 +96,28 @@ async def test_poll_once_records_successful_channel_check():
     }
 
 
+async def test_channel_health_write_failure_does_not_stop_delivery():
+    class BrokenTelemetryState(FakeState):
+        async def set_channel_health(self, chat_id, *, checked_at, error=None):
+            raise RuntimeError("Redis unavailable")
+
+    state = BrokenTelemetryState(last_ids={CHAT_A: 100})
+    handler = RecordingHandler()
+    poller = ChannelPoller(
+        client=FakeClient(history={CHAT_A: [FakeMessage(101, CHAT_A)]}),
+        handler=handler,
+        chats_provider=make_chats_provider([CHAT_A]),
+        state=state,
+        sleep=SleepRecorder(),
+        settings=FakeSettings(),
+    )
+
+    total = await poller.poll_once()
+
+    assert total == 1
+    assert handler.calls == [101]
+
+
 async def test_poll_once_pauses_between_channels():
     state = FakeState(last_ids={CHAT_A: 100, CHAT_B: 200})
     sleeper = SleepRecorder()
@@ -204,8 +226,15 @@ async def test_start_skips_poll_once_when_disabled_by_setting():
     settings = FakeSettings(enabled=False, interval=120)
     sleeper = CountingSleep(stop_after=3)
     poll_calls = []
+    state = FakeState()
 
-    poller = ChannelPoller(client=FakeConnClient(True), settings=settings, sleep=sleeper)
+    poller = ChannelPoller(
+        client=FakeConnClient(True),
+        settings=settings,
+        sleep=sleeper,
+        state=state,
+        clock=lambda: 1234.5,
+    )
     poller.poll_once = _make_recording_poll_once(poll_calls)
 
     with pytest.raises(StopLoop):
@@ -213,6 +242,11 @@ async def test_start_skips_poll_once_when_disabled_by_setting():
 
     assert poll_calls == []
     assert sleeper.calls == [120, 120, 120]
+    assert state.poller_heartbeats[-1] == {
+        "checked_at": 1234.5,
+        "status": "disabled",
+        "error": None,
+    }
 
 
 async def test_start_waits_when_userbot_client_not_connected():
@@ -221,8 +255,15 @@ async def test_start_waits_when_userbot_client_not_connected():
     settings = FakeSettings(enabled=True, interval=90)
     sleeper = CountingSleep(stop_after=2)
     poll_calls = []
+    state = FakeState()
 
-    poller = ChannelPoller(client=FakeConnClient(False), settings=settings, sleep=sleeper)
+    poller = ChannelPoller(
+        client=FakeConnClient(False),
+        settings=settings,
+        sleep=sleeper,
+        state=state,
+        clock=lambda: 1234.5,
+    )
     poller.poll_once = _make_recording_poll_once(poll_calls)
 
     with pytest.raises(StopLoop):
@@ -230,6 +271,7 @@ async def test_start_waits_when_userbot_client_not_connected():
 
     assert poll_calls == []
     assert sleeper.calls == [90, 90]
+    assert state.poller_heartbeats[-1]["status"] == "waiting_userbot"
 
 
 async def test_start_survives_exception_inside_poll_once():
@@ -238,12 +280,19 @@ async def test_start_survives_exception_inside_poll_once():
     settings = FakeSettings(enabled=True, interval=60)
     sleeper = CountingSleep(stop_after=3)
     poll_calls = []
+    state = FakeState()
 
     async def failing_poll_once():
         poll_calls.append(1)
         raise RuntimeError("боевой сбой обхода")
 
-    poller = ChannelPoller(client=FakeConnClient(True), settings=settings, sleep=sleeper)
+    poller = ChannelPoller(
+        client=FakeConnClient(True),
+        settings=settings,
+        sleep=sleeper,
+        state=state,
+        clock=lambda: 1234.5,
+    )
     poller.poll_once = failing_poll_once
 
     with pytest.raises(StopLoop):
@@ -251,6 +300,11 @@ async def test_start_survives_exception_inside_poll_once():
 
     assert len(poll_calls) == 3
     assert sleeper.calls == [60, 60, 60]
+    assert state.poller_heartbeats[-1] == {
+        "checked_at": 1234.5,
+        "status": "error",
+        "error": "RuntimeError: боевой сбой обхода",
+    }
 
 
 async def test_start_survives_broken_settings_and_uses_default_interval():
@@ -267,9 +321,14 @@ async def test_start_survives_broken_settings_and_uses_default_interval():
 
     sleeper = CountingSleep(stop_after=2)
     poll_calls = []
+    state = FakeState()
 
     poller = ChannelPoller(
-        client=FakeConnClient(True), settings=BrokenIntervalSettings(), sleep=sleeper
+        client=FakeConnClient(True),
+        settings=BrokenIntervalSettings(),
+        sleep=sleeper,
+        state=state,
+        clock=lambda: 1234.5,
     )
     poller.poll_once = _make_recording_poll_once(poll_calls)
 
@@ -278,6 +337,7 @@ async def test_start_survives_broken_settings_and_uses_default_interval():
 
     assert poll_calls == []
     assert sleeper.calls == [ChannelPoller.DEFAULT_INTERVAL_SEC, ChannelPoller.DEFAULT_INTERVAL_SEC]
+    assert state.poller_heartbeats[-1]["status"] == "error"
 
 
 async def test_start_clamps_non_positive_interval_to_minimum():
@@ -285,14 +345,43 @@ async def test_start_clamps_non_positive_interval_to_minimum():
     должен превратиться в asyncio.sleep(0)."""
     settings = FakeSettings(enabled=True, interval=0)
     sleeper = CountingSleep(stop_after=2)
+    state = FakeState()
 
-    poller = ChannelPoller(client=FakeConnClient(True), settings=settings, sleep=sleeper)
+    poller = ChannelPoller(
+        client=FakeConnClient(True),
+        settings=settings,
+        sleep=sleeper,
+        state=state,
+        clock=lambda: 1234.5,
+    )
     poller.poll_once = _make_recording_poll_once([])
 
     with pytest.raises(StopLoop):
         await poller.start()
 
     assert sleeper.calls == [ChannelPoller.MIN_INTERVAL_SEC, ChannelPoller.MIN_INTERVAL_SEC]
+    assert state.poller_heartbeats[-1]["status"] == "ok"
+
+
+async def test_heartbeat_write_failure_does_not_stop_poller_loop():
+    class BrokenHeartbeatState(FakeState):
+        async def set_poller_heartbeat(self, *, checked_at, status, error=None):
+            raise RuntimeError("Redis unavailable")
+
+    poll_calls = []
+    sleeper = CountingSleep(stop_after=1)
+    poller = ChannelPoller(
+        client=FakeConnClient(True),
+        settings=FakeSettings(interval=60),
+        sleep=sleeper,
+        state=BrokenHeartbeatState(),
+    )
+    poller.poll_once = _make_recording_poll_once(poll_calls)
+
+    with pytest.raises(StopLoop):
+        await poller.start()
+
+    assert poll_calls == [1]
 
 
 def _make_recording_poll_once(poll_calls):

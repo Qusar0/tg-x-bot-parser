@@ -91,6 +91,21 @@ class ChannelPoller:
                 f"Поллер: не удалось сохранить состояние канала {chat_id}: {ex}"
             )
 
+    async def _record_poller_heartbeat(
+        self,
+        status: str,
+        error: str | None = None,
+    ) -> None:
+        """Сохраняет фактическое состояние цикла, не влияя на его работу."""
+        try:
+            await self._get_state().set_poller_heartbeat(
+                checked_at=self._clock(),
+                status=status,
+                error=error,
+            )
+        except Exception as ex:
+            logger.warning(f"Поллер: не удалось сохранить heartbeat: {ex}")
+
     async def poll_channel(self, chat_id: int, limit: int, max_age_sec: int | None = None) -> int:
         """Читает новые сообщения канала и отдаёт их в обработчик.
 
@@ -236,14 +251,22 @@ class ChannelPoller:
                     interval = self.MIN_INTERVAL_SEC
 
                 if not config.get_poller_enabled():
+                    await self._record_poller_heartbeat("disabled")
                     logger.info("Поллер: выключен настройкой, ждём следующей итерации")
                 else:
                     client = self._get_client()
                     if not getattr(client, "is_connected", False):
+                        await self._record_poller_heartbeat("waiting_userbot")
                         logger.info("Поллер: userbot ещё не подключён, ждём следующей итерации")
                     else:
+                        await self._record_poller_heartbeat("running")
                         await self.poll_once()
+                        await self._record_poller_heartbeat("ok")
             except Exception as ex:
+                await self._record_poller_heartbeat(
+                    "error",
+                    error=f"{type(ex).__name__}: {ex}",
+                )
                 logger.error(f"Поллер: ошибка обхода: {ex}")
 
             await self._sleep(interval)

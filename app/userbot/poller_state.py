@@ -10,10 +10,18 @@ from loguru import logger
 
 LAST_ID_KEY = "poller:last_id:{chat_id}"
 HEALTH_KEY = "poller:health:{chat_id}"
+POLLER_HEARTBEAT_KEY = "poller:heartbeat"
 SEEN_KEY = "poller:seen:{chat_id}:{message_id}"
 GROUP_KEY = "poller:group:{chat_id}:{media_group_id}:{dest_chat_id}"
 
 SEEN_TTL_SEC = 48 * 60 * 60
+POLLER_HEARTBEAT_STATUSES = {
+    "running",
+    "ok",
+    "disabled",
+    "waiting_userbot",
+    "error",
+}
 
 # Подменяется в тестах; в бою резолвится лениво, чтобы не тянуть app.config при импорте
 _store = None
@@ -22,6 +30,13 @@ _store = None
 @dataclass(frozen=True)
 class ChannelHealth:
     checked_at: float
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class PollerHeartbeat:
+    checked_at: float
+    status: str
     error: str | None = None
 
 
@@ -70,6 +85,8 @@ async def get_channel_health(chat_id: int) -> ChannelHealth | None:
 
     try:
         payload = json.loads(value)
+        if not isinstance(payload, dict):
+            raise TypeError("health payload must be an object")
         error = payload.get("error")
         if error is not None and not isinstance(error, str):
             raise ValueError("error must be a string or null")
@@ -79,6 +96,50 @@ async def get_channel_health(chat_id: int) -> ChannelHealth | None:
         )
     except (TypeError, ValueError, KeyError, json.JSONDecodeError):
         logger.warning(f"Поллер: некорректное состояние здоровья чата {chat_id}: {value!r}")
+        return None
+
+
+async def set_poller_heartbeat(
+    *,
+    checked_at: float,
+    status: str,
+    error: str | None = None,
+) -> None:
+    if status not in POLLER_HEARTBEAT_STATUSES:
+        raise ValueError(f"unknown poller heartbeat status: {status}")
+    payload = json.dumps(
+        {
+            "checked_at": float(checked_at),
+            "status": status,
+            "error": error,
+        },
+        ensure_ascii=False,
+    )
+    await _get_store().set_value(POLLER_HEARTBEAT_KEY, payload)
+
+
+async def get_poller_heartbeat() -> PollerHeartbeat | None:
+    value = await _get_store().get_value(POLLER_HEARTBEAT_KEY)
+    if value is None:
+        return None
+
+    try:
+        payload = json.loads(value)
+        if not isinstance(payload, dict):
+            raise TypeError("poller heartbeat payload must be an object")
+        status = payload["status"]
+        if status not in POLLER_HEARTBEAT_STATUSES:
+            raise ValueError("unknown poller heartbeat status")
+        error = payload.get("error")
+        if error is not None and not isinstance(error, str):
+            raise ValueError("error must be a string or null")
+        return PollerHeartbeat(
+            checked_at=float(payload["checked_at"]),
+            status=status,
+            error=error,
+        )
+    except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+        logger.warning(f"Поллер: некорректный heartbeat: {value!r}")
         return None
 
 

@@ -2,14 +2,28 @@ from app.userbot.channel_status import (
     ChannelStatusData,
     build_channels_status_messages,
     get_stale_after_sec,
+    get_stale_after_sec_from_settings,
     load_channels_status_data,
 )
-from app.userbot.poller_state import ChannelHealth
+from app.userbot.poller_state import ChannelHealth, PollerHeartbeat
 
 
 def test_stale_threshold_allows_three_poller_intervals_with_safe_minimum():
     assert get_stale_after_sec(300) == 900
     assert get_stale_after_sec(0) == 90
+
+
+def test_stale_threshold_uses_safe_default_for_broken_setting():
+    assert get_stale_after_sec("5m") == 900
+    assert get_stale_after_sec(None) == 900
+
+
+def test_stale_threshold_survives_settings_getter_error():
+    class BrokenSettings:
+        def get_poller_interval_sec(self):
+            raise ValueError("invalid interval")
+
+    assert get_stale_after_sec_from_settings(BrokenSettings()) == 900
 
 
 def test_report_classifies_channels_and_escapes_telegram_html():
@@ -49,12 +63,13 @@ def test_report_classifies_channels_and_escapes_telegram_html():
         now=1000.0,
         stale_after_sec=60,
         poller_enabled=True,
+        poller_heartbeat=PollerHeartbeat(checked_at=995.0, status="ok"),
         userbot_connected=True,
     )
 
     assert len(messages) == 1
     report = messages[0]
-    assert "Поллер: ✅ включён" in report
+    assert "Поллер: ✅ работает" in report
     assert "Userbot: ✅ подключён" in report
     assert "Всего: 4 | ✅ 1 | ⚠️ 2 | ❌ 1" in report
     assert "✅ <b>Alpha &amp; Beta</b> (@alpha)" in report
@@ -84,6 +99,7 @@ def test_report_is_split_into_telegram_sized_messages_without_losing_channels():
         now=1001.0,
         stale_after_sec=60,
         poller_enabled=True,
+        poller_heartbeat=PollerHeartbeat(checked_at=1000.0, status="ok"),
         userbot_connected=True,
     )
 
@@ -102,16 +118,56 @@ def test_report_handles_empty_monitoring_list_and_global_failures():
         now=1000.0,
         stale_after_sec=60,
         poller_enabled=False,
+        poller_heartbeat=None,
         userbot_connected=False,
     )
 
     assert messages == [
         "📡 <b>Статус каналов мониторинга</b>\n"
-        "Поллер: ⛔ выключен\n"
+        "Поллер: ⛔ выключен настройкой\n"
         "Userbot: ❌ отключён\n"
         "Всего: 0 | ✅ 0 | ⚠️ 0 | ❌ 0\n\n"
         "Каналы мониторинга отсутствуют."
     ]
+
+
+def test_report_warns_when_enabled_poller_has_no_fresh_heartbeat():
+    without_heartbeat = build_channels_status_messages(
+        [],
+        now=1000.0,
+        stale_after_sec=60,
+        poller_enabled=True,
+        poller_heartbeat=None,
+        userbot_connected=True,
+    )[0]
+    stale_heartbeat = build_channels_status_messages(
+        [],
+        now=1000.0,
+        stale_after_sec=60,
+        poller_enabled=True,
+        poller_heartbeat=PollerHeartbeat(checked_at=900.0, status="ok"),
+        userbot_connected=True,
+    )[0]
+
+    assert "Поллер: ⚠️ ещё не запускался" in without_heartbeat
+    assert "Поллер: ⚠️ давно не подавал признаков работы" in stale_heartbeat
+
+
+def test_report_shows_poller_error_and_escapes_it():
+    report = build_channels_status_messages(
+        [],
+        now=1000.0,
+        stale_after_sec=60,
+        poller_enabled=True,
+        poller_heartbeat=PollerHeartbeat(
+            checked_at=995.0,
+            status="error",
+            error="Redis <offline>",
+        ),
+        userbot_connected=True,
+    )[0]
+
+    assert "Поллер: ❌ ошибка: Redis &lt;offline&gt;" in report
 
 
 async def test_load_channels_status_data_matches_redis_state_by_chat_id():

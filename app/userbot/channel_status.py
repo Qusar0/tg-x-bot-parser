@@ -4,15 +4,29 @@ import asyncio
 from dataclasses import dataclass
 from html import escape
 
-from app.userbot.poller_state import ChannelHealth
+from app.userbot.poller_state import ChannelHealth, PollerHeartbeat
 
 
 REPORT_CHUNK_LIMIT = 3900
+DEFAULT_POLLER_INTERVAL_SEC = 300
+MIN_POLLER_INTERVAL_SEC = 30
 
 
-def get_stale_after_sec(poller_interval_sec: int) -> int:
+def get_stale_after_sec(poller_interval_sec: object) -> int:
     """Возвращает порог устаревания после трёх ожидаемых циклов поллера."""
-    return max(int(poller_interval_sec), 30) * 3
+    try:
+        interval = int(poller_interval_sec)
+    except (TypeError, ValueError):
+        interval = DEFAULT_POLLER_INTERVAL_SEC
+    return max(interval, MIN_POLLER_INTERVAL_SEC) * 3
+
+
+def get_stale_after_sec_from_settings(settings: object) -> int:
+    try:
+        interval = settings.get_poller_interval_sec()
+    except (TypeError, ValueError):
+        interval = DEFAULT_POLLER_INTERVAL_SEC
+    return get_stale_after_sec(interval)
 
 
 @dataclass(frozen=True)
@@ -71,6 +85,33 @@ def _status_kind(
     if now - channel.health.checked_at > stale_after_sec:
         return "warning"
     return "ok"
+
+
+def _format_poller_status(
+    *,
+    enabled: bool,
+    heartbeat: PollerHeartbeat | None,
+    now: float,
+    stale_after_sec: int,
+) -> str:
+    if not enabled:
+        return "⛔ выключен настройкой"
+    if heartbeat is None:
+        return "⚠️ ещё не запускался"
+
+    age = _format_age(now - heartbeat.checked_at)
+    if heartbeat.status == "error":
+        error = escape(_truncate(heartbeat.error or "неизвестная ошибка", 240))
+        return f"❌ ошибка: {error} ({age})"
+    if now - heartbeat.checked_at > stale_after_sec:
+        return f"⚠️ давно не подавал признаков работы ({age})"
+    if heartbeat.status == "waiting_userbot":
+        return f"⚠️ ожидает подключения Userbot ({age})"
+    if heartbeat.status == "disabled":
+        return f"⚠️ последнее состояние: выключен ({age})"
+    if heartbeat.status == "running":
+        return f"🔄 выполняет обход ({age})"
+    return f"✅ работает (последний цикл {age})"
 
 
 def _format_channel(
@@ -137,6 +178,7 @@ def build_channels_status_messages(
     now: float,
     stale_after_sec: int,
     poller_enabled: bool,
+    poller_heartbeat: PollerHeartbeat | None,
     userbot_connected: bool,
 ) -> list[str]:
     """Формирует полную HTML-сводку, разбитую под лимит Telegram."""
@@ -153,7 +195,12 @@ def build_channels_status_messages(
         counts[kind] += 1
         formatted_entries.append(entry)
 
-    poller_status = "✅ включён" if poller_enabled else "⛔ выключен"
+    poller_status = _format_poller_status(
+        enabled=poller_enabled,
+        heartbeat=poller_heartbeat,
+        now=now,
+        stale_after_sec=stale_after_sec,
+    )
     userbot_status = "✅ подключён" if userbot_connected else "❌ отключён"
     header = (
         "📡 <b>Статус каналов мониторинга</b>\n"

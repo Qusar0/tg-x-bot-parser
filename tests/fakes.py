@@ -39,6 +39,7 @@ class FakeState:
     def __init__(self, last_ids=None):
         self.last_ids = dict(last_ids or {})
         self.health = {}
+        self.poller_heartbeats = []
 
     async def get_last_id(self, chat_id):
         return self.last_ids.get(chat_id)
@@ -51,6 +52,15 @@ class FakeState:
             "checked_at": checked_at,
             "error": error,
         }
+
+    async def set_poller_heartbeat(self, *, checked_at, status, error=None):
+        self.poller_heartbeats.append(
+            {
+                "checked_at": checked_at,
+                "status": status,
+                "error": error,
+            }
+        )
 
 
 class RecordingHandler:

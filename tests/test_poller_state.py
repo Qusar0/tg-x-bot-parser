@@ -89,6 +89,55 @@ async def test_get_channel_health_returns_none_for_malformed_value(store):
     assert await poller_state.get_channel_health(-100500) is None
 
 
+@pytest.mark.parametrize("value", ["[]", "null", '"text"'])
+async def test_get_channel_health_returns_none_for_wrong_json_shape(store, value):
+    store.data["poller:health:-100500"] = value
+
+    assert await poller_state.get_channel_health(-100500) is None
+
+
+async def test_poller_heartbeat_round_trip(store):
+    await poller_state.set_poller_heartbeat(
+        checked_at=1234.5,
+        status="ok",
+    )
+
+    heartbeat = await poller_state.get_poller_heartbeat()
+
+    assert heartbeat == poller_state.PollerHeartbeat(
+        checked_at=1234.5,
+        status="ok",
+        error=None,
+    )
+
+
+async def test_poller_heartbeat_round_trip_for_error(store):
+    await poller_state.set_poller_heartbeat(
+        checked_at=1234.5,
+        status="error",
+        error="RuntimeError: failure",
+    )
+
+    heartbeat = await poller_state.get_poller_heartbeat()
+
+    assert heartbeat == poller_state.PollerHeartbeat(
+        checked_at=1234.5,
+        status="error",
+        error="RuntimeError: failure",
+    )
+
+
+@pytest.mark.parametrize("value", [None, "[]", "not-json"])
+async def test_get_poller_heartbeat_returns_none_for_missing_or_malformed_value(
+    store,
+    value,
+):
+    if value is not None:
+        store.data[poller_state.POLLER_HEARTBEAT_KEY] = value
+
+    assert await poller_state.get_poller_heartbeat() is None
+
+
 async def test_claim_message_succeeds_once_with_ttl(store):
     assert await poller_state.claim_message(-100500, 7) is True
     assert store.ttls["poller:seen:-100500:7"] == poller_state.SEEN_TTL_SEC
