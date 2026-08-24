@@ -96,6 +96,18 @@ async def test_get_channel_health_returns_none_for_wrong_json_shape(store, value
     assert await poller_state.get_channel_health(-100500) is None
 
 
+@pytest.mark.parametrize("checked_at", ["NaN", "Infinity", "-Infinity"])
+async def test_get_channel_health_returns_none_for_non_finite_time(
+    store,
+    checked_at,
+):
+    store.data["poller:health:-100500"] = (
+        f'{{"checked_at": {checked_at}, "error": null}}'
+    )
+
+    assert await poller_state.get_channel_health(-100500) is None
+
+
 async def test_poller_heartbeat_round_trip(store):
     await poller_state.set_poller_heartbeat(
         checked_at=1234.5,
@@ -134,6 +146,18 @@ async def test_get_poller_heartbeat_returns_none_for_missing_or_malformed_value(
 ):
     if value is not None:
         store.data[poller_state.POLLER_HEARTBEAT_KEY] = value
+
+    assert await poller_state.get_poller_heartbeat() is None
+
+
+@pytest.mark.parametrize("checked_at", ["NaN", "Infinity", "-Infinity"])
+async def test_get_poller_heartbeat_returns_none_for_non_finite_time(
+    store,
+    checked_at,
+):
+    store.data[poller_state.POLLER_HEARTBEAT_KEY] = (
+        f'{{"checked_at": {checked_at}, "status": "ok", "error": null}}'
+    )
 
     assert await poller_state.get_poller_heartbeat() is None
 

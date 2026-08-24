@@ -4,6 +4,7 @@
 (cleanup_old_posts удаляет post:*) их не задевала.
 """
 import json
+import math
 from dataclasses import dataclass
 
 from loguru import logger
@@ -49,6 +50,13 @@ def _get_store():
     return redis_store
 
 
+def _parse_checked_at(value: object) -> float:
+    checked_at = float(value)
+    if not math.isfinite(checked_at):
+        raise ValueError("checked_at must be finite")
+    return checked_at
+
+
 async def get_last_id(chat_id: int) -> int | None:
     value = await _get_store().get_value(LAST_ID_KEY.format(chat_id=chat_id))
     if value is None:
@@ -72,7 +80,7 @@ async def set_channel_health(
     error: str | None = None,
 ) -> None:
     payload = json.dumps(
-        {"checked_at": float(checked_at), "error": error},
+        {"checked_at": _parse_checked_at(checked_at), "error": error},
         ensure_ascii=False,
     )
     await _get_store().set_value(HEALTH_KEY.format(chat_id=chat_id), payload)
@@ -91,7 +99,7 @@ async def get_channel_health(chat_id: int) -> ChannelHealth | None:
         if error is not None and not isinstance(error, str):
             raise ValueError("error must be a string or null")
         return ChannelHealth(
-            checked_at=float(payload["checked_at"]),
+            checked_at=_parse_checked_at(payload["checked_at"]),
             error=error,
         )
     except (TypeError, ValueError, KeyError, json.JSONDecodeError):
@@ -109,7 +117,7 @@ async def set_poller_heartbeat(
         raise ValueError(f"unknown poller heartbeat status: {status}")
     payload = json.dumps(
         {
-            "checked_at": float(checked_at),
+            "checked_at": _parse_checked_at(checked_at),
             "status": status,
             "error": error,
         },
@@ -134,7 +142,7 @@ async def get_poller_heartbeat() -> PollerHeartbeat | None:
         if error is not None and not isinstance(error, str):
             raise ValueError("error must be a string or null")
         return PollerHeartbeat(
-            checked_at=float(payload["checked_at"]),
+            checked_at=_parse_checked_at(payload["checked_at"]),
             status=status,
             error=error,
         )
