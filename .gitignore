@@ -148,6 +148,7 @@ settings.json
 logs/
 poetry.lock
 .idea
+.worktrees/
 config.dev.ini
 answers.json
 *.xlsx
