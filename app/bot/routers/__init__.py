@@ -7,6 +7,7 @@ import app.bot.routers.admin.chats.handlers  # noqa
 import app.bot.routers.admin.words.handlers  # noqa
 import app.bot.routers.admin.tg_parser.handlers.menu  # noqa
 import app.bot.routers.admin.tg_parser.handlers.check  # noqa
+import app.bot.routers.admin.tg_parser.handlers.channels_status  # noqa
 import app.bot.routers.admin.x_parser.handlers.menu  # noqa
 
 root_handlers_router = Router()
