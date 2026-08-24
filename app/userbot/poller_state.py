@@ -3,9 +3,13 @@
 Ключи вынесены под префикс poller:, чтобы чистка старых постов
 (cleanup_old_posts удаляет post:*) их не задевала.
 """
+import json
+from dataclasses import dataclass
+
 from loguru import logger
 
 LAST_ID_KEY = "poller:last_id:{chat_id}"
+HEALTH_KEY = "poller:health:{chat_id}"
 SEEN_KEY = "poller:seen:{chat_id}:{message_id}"
 GROUP_KEY = "poller:group:{chat_id}:{media_group_id}:{dest_chat_id}"
 
@@ -13,6 +17,12 @@ SEEN_TTL_SEC = 48 * 60 * 60
 
 # Подменяется в тестах; в бою резолвится лениво, чтобы не тянуть app.config при импорте
 _store = None
+
+
+@dataclass(frozen=True)
+class ChannelHealth:
+    checked_at: float
+    error: str | None = None
 
 
 def _get_store():
@@ -38,6 +48,38 @@ async def get_last_id(chat_id: int) -> int | None:
 
 async def set_last_id(chat_id: int, message_id: int) -> None:
     await _get_store().set_value(LAST_ID_KEY.format(chat_id=chat_id), str(message_id))
+
+
+async def set_channel_health(
+    chat_id: int,
+    *,
+    checked_at: float,
+    error: str | None = None,
+) -> None:
+    payload = json.dumps(
+        {"checked_at": float(checked_at), "error": error},
+        ensure_ascii=False,
+    )
+    await _get_store().set_value(HEALTH_KEY.format(chat_id=chat_id), payload)
+
+
+async def get_channel_health(chat_id: int) -> ChannelHealth | None:
+    value = await _get_store().get_value(HEALTH_KEY.format(chat_id=chat_id))
+    if value is None:
+        return None
+
+    try:
+        payload = json.loads(value)
+        error = payload.get("error")
+        if error is not None and not isinstance(error, str):
+            raise ValueError("error must be a string or null")
+        return ChannelHealth(
+            checked_at=float(payload["checked_at"]),
+            error=error,
+        )
+    except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+        logger.warning(f"Поллер: некорректное состояние здоровья чата {chat_id}: {value!r}")
+        return None
 
 
 async def claim_message(chat_id: int, message_id: int) -> bool:

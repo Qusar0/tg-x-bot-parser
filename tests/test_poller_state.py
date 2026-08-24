@@ -56,6 +56,39 @@ async def test_get_last_id_returns_none_on_broken_value(store):
     assert await poller_state.get_last_id(-100500) is None
 
 
+async def test_channel_health_round_trip_for_success(store):
+    await poller_state.set_channel_health(-100500, checked_at=1234.5)
+
+    health = await poller_state.get_channel_health(-100500)
+
+    assert health == poller_state.ChannelHealth(checked_at=1234.5, error=None)
+
+
+async def test_channel_health_round_trip_for_error(store):
+    await poller_state.set_channel_health(
+        -100500,
+        checked_at=1234.5,
+        error="CHANNEL_PRIVATE",
+    )
+
+    health = await poller_state.get_channel_health(-100500)
+
+    assert health == poller_state.ChannelHealth(
+        checked_at=1234.5,
+        error="CHANNEL_PRIVATE",
+    )
+
+
+async def test_get_channel_health_returns_none_when_missing(store):
+    assert await poller_state.get_channel_health(-100500) is None
+
+
+async def test_get_channel_health_returns_none_for_malformed_value(store):
+    store.data["poller:health:-100500"] = "not-json"
+
+    assert await poller_state.get_channel_health(-100500) is None
+
+
 async def test_claim_message_succeeds_once_with_ttl(store):
     assert await poller_state.claim_message(-100500, 7) is True
     assert store.ttls["poller:seen:-100500:7"] == poller_state.SEEN_TTL_SEC

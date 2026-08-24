@@ -28,6 +28,7 @@ class ChannelPoller:
         state=None,
         sleep=None,
         settings=None,
+        clock=None,
     ):
         self._client = client
         self._handler = handler
@@ -35,6 +36,7 @@ class ChannelPoller:
         self._state = state
         self._settings = settings
         self._sleep = sleep or asyncio.sleep
+        self._clock = clock or time.time
 
     def _get_client(self):
         if self._client is not None:
@@ -75,6 +77,19 @@ class ChannelPoller:
         from app.database.repo.Chat import ChatRepo
 
         return await ChatRepo.get_monitoring_chats()
+
+    async def _record_channel_health(self, chat_id: int, error: str | None = None) -> None:
+        """Сохраняет телеметрию, не влияя на основной цикл доставки."""
+        try:
+            await self._get_state().set_channel_health(
+                chat_id,
+                checked_at=self._clock(),
+                error=error,
+            )
+        except Exception as ex:
+            logger.warning(
+                f"Поллер: не удалось сохранить состояние канала {chat_id}: {ex}"
+            )
 
     async def poll_channel(self, chat_id: int, limit: int, max_age_sec: int | None = None) -> int:
         """Читает новые сообщения канала и отдаёт их в обработчик.
@@ -129,7 +144,7 @@ class ChannelPoller:
         handler = self._get_handler()
         processed = 0
         max_id = last_id
-        now = time.time()
+        now = self._clock()
 
         for message in new_messages:
             max_id = max(max_id, message.id)
@@ -173,12 +188,21 @@ class ChannelPoller:
         for chat in chats:
             try:
                 total += await self.poll_channel(chat.telegram_id, limit, max_age_sec)
+                await self._record_channel_health(chat.telegram_id)
             except FloodWait as ex:
+                await self._record_channel_health(
+                    chat.telegram_id,
+                    error=f"FloodWait: {ex.value} сек",
+                )
                 logger.warning(
                     f"Поллер: FloodWait {ex.value} сек на канале {chat.telegram_id}, ждём"
                 )
                 await self._sleep(ex.value)
             except Exception as ex:
+                await self._record_channel_health(
+                    chat.telegram_id,
+                    error=f"{type(ex).__name__}: {ex}",
+                )
                 logger.warning(f"Поллер: канал {chat.telegram_id} недоступен: {ex}")
 
             await self._sleep(delay)

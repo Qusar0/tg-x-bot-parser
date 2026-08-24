@@ -76,6 +76,26 @@ async def test_poll_once_walks_all_channels():
     assert sorted(handler.calls) == [101, 201]
 
 
+async def test_poll_once_records_successful_channel_check():
+    state = FakeState(last_ids={CHAT_A: 100})
+    poller = ChannelPoller(
+        client=FakeClient(history={}),
+        handler=RecordingHandler(),
+        chats_provider=make_chats_provider([CHAT_A]),
+        state=state,
+        sleep=SleepRecorder(),
+        settings=FakeSettings(),
+        clock=lambda: 1234.5,
+    )
+
+    await poller.poll_once()
+
+    assert state.health[CHAT_A] == {
+        "checked_at": 1234.5,
+        "error": None,
+    }
+
+
 async def test_poll_once_pauses_between_channels():
     state = FakeState(last_ids={CHAT_A: 100, CHAT_B: 200})
     sleeper = SleepRecorder()
@@ -111,12 +131,21 @@ async def test_channel_error_does_not_stop_the_walk():
         state=state,
         sleep=SleepRecorder(),
         settings=FakeSettings(),
+        clock=lambda: 1234.5,
     )
 
     total = await poller.poll_once()
 
     assert total == 1
     assert handler.calls == [201]
+    assert state.health[CHAT_A] == {
+        "checked_at": 1234.5,
+        "error": "ValueError: канал недоступен",
+    }
+    assert state.health[CHAT_B] == {
+        "checked_at": 1234.5,
+        "error": None,
+    }
 
 
 async def test_floodwait_is_awaited_and_walk_continues():

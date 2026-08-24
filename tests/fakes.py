@@ -38,12 +38,19 @@ class FakeClient:
 class FakeState:
     def __init__(self, last_ids=None):
         self.last_ids = dict(last_ids or {})
+        self.health = {}
 
     async def get_last_id(self, chat_id):
         return self.last_ids.get(chat_id)
 
     async def set_last_id(self, chat_id, message_id):
         self.last_ids[chat_id] = message_id
+
+    async def set_channel_health(self, chat_id, *, checked_at, error=None):
+        self.health[chat_id] = {
+            "checked_at": checked_at,
+            "error": error,
+        }
 
 
 class RecordingHandler:
