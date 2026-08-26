@@ -19,7 +19,7 @@ def parse_check_request(text: str | None) -> CheckRequest:
     parts = (text or "").strip().split()
     if len(parts) not in (2, 3):
         raise CheckRequestError(
-            "⚠️ Укажи канал и количество сообщений в формате:\n"
+            "⚠️ Укажи канал и, при необходимости, количество сообщений:\n"
             "<code>/check @channel [1-500]</code>"
         )
 
@@ -31,12 +31,12 @@ def parse_check_request(text: str | None) -> CheckRequest:
 
     message_count = DEFAULT_MESSAGE_COUNT
     if len(parts) == 3:
-        try:
-            message_count = int(parts[2])
-        except ValueError as ex:
+        count_text = parts[2]
+        if not count_text.isascii() or not count_text.isdecimal():
             raise CheckRequestError(
                 "⚠️ Количество сообщений должно быть целым числом от 1 до 500"
-            ) from ex
+            )
+        message_count = int(count_text)
 
     if not 1 <= message_count <= MAX_MESSAGE_COUNT:
         raise CheckRequestError(
