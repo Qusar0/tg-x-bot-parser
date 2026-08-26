@@ -2,6 +2,11 @@ from aiogram import types
 from aiogram.filters import Command
 from app.bot.routers.admin.tg_parser.errors import NoPostsProvided
 from app.bot.routers.admin.tg_parser.signals_parser_4_n8n import ChannelHistoryParser
+from app.userbot.check_request import (
+    CheckRequestError,
+    collect_requested_posts,
+    parse_check_request,
+)
 from loguru import logger
 
 from app.bot.routers.admin import admin_router
@@ -10,35 +15,33 @@ from app.bot.utils.n8n_client import N8NClient
 
 @admin_router.message(Command("check"))
 async def check_channel_handler(message: types.Message):
-    text = (message.text or "").strip()
-    parts = text.split(maxsplit=1)
-    if len(parts) < 2:
-        await message.answer(
-            "⚠️ Укажи канал в формате:\n<code>/check @channel</code>"
-        )
+    try:
+        request = parse_check_request(message.text)
+    except CheckRequestError as ex:
+        await message.answer(str(ex))
         return
 
-    channel = parts[1].strip()
-    if not channel.startswith("@"):
-        await message.answer("⚠️ Канал должен быть в формате <code>@channel</code>")
-        return
+    channel = request.channel
 
     logger.info(
-        "Команда /check вызвана | user_id={} | username=@{} | channel={}",
+        "Команда /check вызвана | user_id={} | username=@{} | "
+        "channel={} | message_count={}",
         message.from_user.id,
         message.from_user.username or "unknown",
         channel,
+        request.message_count,
     )
 
     await message.answer(
         f"🕐 Проверка канала <code>{channel}</code> запущена\n"
+        f"🗒 Запрошено сообщений: <code>{request.message_count}</code>\n"
         f"⏳ Выполняю сбор постов..."
     )
 
     posts = None
     try:
         async with ChannelHistoryParser() as parser:
-            posts = await parser.get_last_posts(channel=channel, limit=25, load_media_binary=True)
+            posts = await collect_requested_posts(parser, request)
             posts_payload = []
             media_files = {}
             for post_obj in posts:
